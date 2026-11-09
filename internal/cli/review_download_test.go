@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"testing"
@@ -59,7 +60,7 @@ func TestDownloadDestinationErrorsAreCleanUsage(t *testing.T) {
 		if err := json.Unmarshal([]byte(out), &envelope); err != nil {
 			t.Fatal(err)
 		}
-		if code != 2 || envelope.Error.Code != "usage" || !strings.Contains(envelope.Error.Message, target) || strings.Contains(out, ".sbp-download-") {
+		if code != 2 || envelope.Error.Code != "usage" || !strings.Contains(envelope.Error.Message, strconv.Quote(target)) || strings.Contains(out, ".sbp-download-") {
 			t.Errorf("%s: exit %d %s", target, code, out)
 		}
 	}
