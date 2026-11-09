@@ -95,6 +95,12 @@ func (s *session) doctor(cmd *cobra.Command, args []string) error {
 		detail := "unavailable"
 		if err == nil {
 			detail = fmt.Sprintf("version %s; %d operations; %s", cat.Version, len(cat.Operations), cat.Path)
+			if cat.Warning != "" {
+				detail += "; " + cat.Warning
+				if err := s.warn(cat.Warning); err != nil {
+					return err
+				}
+			}
 		}
 		add("catalog cache", detail, err)
 	}

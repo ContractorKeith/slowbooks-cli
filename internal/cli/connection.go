@@ -42,7 +42,7 @@ func getJSON(cmd *cobra.Command, c *client.Client, path string, dest any) error 
 		return e
 	}
 	if e = json.Unmarshal(b, dest); e != nil {
-		return &output.Error{Code: "server", Message: "invalid JSON from server"}
+		return &output.Error{Code: "error", Message: "invalid JSON from server"}
 	}
 	return nil
 }

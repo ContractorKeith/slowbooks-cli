@@ -121,8 +121,8 @@ func TestCacheVersionCorruptionAndOffline(t *testing.T) {
 	}
 	version = "../../escape"
 	_, err = Load(context.Background(), cl, "", false)
-	if err == nil {
-		t.Fatal("unsafe version accepted")
+	if err != nil {
+		t.Fatal("unusual version refused", err)
 	}
 }
 func TestInheritedHeadersAndBoundedSchema(t *testing.T) {

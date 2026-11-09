@@ -29,6 +29,7 @@ type Catalog struct {
 	Operations    []Operation
 	Document      map[string]any
 	Version, Path string
+	Warning       string
 }
 
 // Parse accepts a structurally valid OpenAPI document, including inherited parameters.
@@ -88,7 +89,7 @@ func Parse(data []byte) (*Catalog, error) {
 					o.Keyed = true
 				}
 			}
-			o.FileRoute = IsFile(path)
+			o.FileRoute = fileRoute(o.Method, path, op, c)
 			c.Operations = append(c.Operations, o)
 		}
 	}

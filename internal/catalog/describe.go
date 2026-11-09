@@ -5,27 +5,38 @@ import (
 	"strings"
 )
 
+type referenceCut struct{}
+
+// reference follows local aliases with a visited set and a bounded chain length.
 func (c *Catalog) reference(v any) any {
-	obj, ok := v.(map[string]any)
-	if !ok {
-		return v
-	}
-	ref, ok := obj["$ref"].(string)
-	if !ok || !strings.HasPrefix(ref, "#/") {
-		return v
-	}
-	var found any = c.Document
-	for _, part := range strings.Split(strings.TrimPrefix(ref, "#/"), "/") {
-		m, ok := found.(map[string]any)
+	seen := map[string]bool{}
+	for steps := 0; steps < 60; steps++ {
+		obj, ok := v.(map[string]any)
 		if !ok {
 			return v
 		}
-		found = m[strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")]
+		ref, ok := obj["$ref"].(string)
+		if !ok || !strings.HasPrefix(ref, "#/") {
+			return v
+		}
+		if seen[ref] {
+			return referenceCut{}
+		}
+		seen[ref] = true
+		var found any = c.Document
+		for _, part := range strings.Split(strings.TrimPrefix(ref, "#/"), "/") {
+			m, ok := found.(map[string]any)
+			if !ok {
+				return v
+			}
+			found = m[strings.ReplaceAll(strings.ReplaceAll(part, "~1", "/"), "~0", "~")]
+		}
+		if found == nil {
+			return v
+		}
+		v = found
 	}
-	if found == nil {
-		return v
-	}
-	return found
+	return referenceCut{}
 }
 
 // Describe resolves local schemas within fixed depth and node budgets, including cycles.
@@ -45,6 +56,9 @@ func (c *Catalog) Describe(o Operation) any {
 		}
 		v = c.reference(v)
 		switch x := v.(type) {
+		case referenceCut:
+			cut = true
+			return "<truncated>"
 		case map[string]any:
 			out := map[string]any{}
 			keys := make([]string, 0, len(x))
@@ -114,6 +128,10 @@ func (c *Catalog) Find(words []string, limit int) []Operation {
 			value := 0
 			if pathMatches(o.Path, word) {
 				value = 4
+				last := strings.ToLower(o.Path[strings.LastIndex(o.Path, "/")+1:])
+				if last == word || last == word+"s" || (strings.HasSuffix(word, "y") && last == strings.TrimSuffix(word, "y")+"ies") {
+					value += 4
+				}
 			} else if strings.Contains(strings.ToLower(o.Summary), word) {
 				value = 2
 			} else if strings.Contains(strings.ToLower(strings.Join(o.Tags, " ")), word) {
@@ -132,7 +150,16 @@ func (c *Catalog) Find(words []string, limit int) []Operation {
 		if hits[i].matched != hits[j].matched {
 			return hits[i].matched > hits[j].matched
 		}
-		return hits[i].score > hits[j].score
+		if hits[i].score != hits[j].score {
+			return hits[i].score > hits[j].score
+		}
+		if len(hits[i].op.Path) != len(hits[j].op.Path) {
+			return len(hits[i].op.Path) < len(hits[j].op.Path)
+		}
+		if hits[i].op.Path != hits[j].op.Path {
+			return hits[i].op.Path < hits[j].op.Path
+		}
+		return hits[i].op.Method < hits[j].op.Method
 	})
 	out := []Operation{}
 	for i, h := range hits {

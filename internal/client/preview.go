@@ -11,6 +11,11 @@ type Preview struct {
 
 // Preview validates the target without sending a request or exposing credentials.
 func (c *Client) Preview(method, path string, body any, key string) (Preview, error) {
+	if key != "" {
+		if err := ValidateKey(key); err != nil {
+			return Preview{}, err
+		}
+	}
 	method = strings.ToUpper(method)
 	switch method {
 	case "GET", "HEAD", "POST", "PUT", "PATCH", "DELETE":

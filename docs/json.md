@@ -84,13 +84,31 @@ M2 adds `ops find`, `ops describe`, `ops call`, and `api`. Find returns a ranked
 array of operations (default limit 20). Describe returns operation metadata,
 including params, body schema, keyed and file-route flags, role notes when the
 server provides them, and `truncated`. Local schema references are resolved with
-a depth cap of 8, a 600-node budget, and a 16,000-character budget; cuts are
-marked. Calls return the server JSON (or null for an empty response).
+a depth cap of 8, a 600-node budget, and a 16,000-character budget; alias chains
+have a 60-reference cap and cycle detection. Cuts are marked. Calls return the
+server JSON (or null for an empty response). Successful writes
+with a non-JSON media type return raw text as a JSON string. Malformed JSON
+responses and local cache errors use `error` (exit 1), not `server`. Catalog write
+failures warn on stderr and commands continue using the fetched catalog.
 
 Dry-run returns `{method,url,headers,body}` with Authorization redacted. It uses
 only the existing catalog cache and sends no HTTP requests, including discovery.
-With no valid cache it exits 2 and hints to run `sbp ops find <words>` first.
+With no cached version marker it exits 2 and hints to run `sbp ops find <words>`
+first. An unreadable or corrupt offline cache exits 1.
 Unknown `ops call` operations exit 2; `api` permits them with a stderr warning.
-File routes exit 2 with a `sbp download <path>` hint. Keyed writes without `--key`
+File routes are GET/HEAD operations identified by their path or declared non-JSON
+success media types; they exit 2 with a `sbp download <path>` hint. Writes on
+paths containing file-related words remain callable. Keyed writes without `--key`
 exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. Repeated
 `--param name=value` fills path placeholders and otherwise adds query values.
+
+Keys are 1–200 bytes and must contain no control characters or leading/trailing
+whitespace; an explicitly empty `--key` exits 2. Writes with trailing slashes
+are refused with exit 2 before lookup or sending. Malformed query strings exit
+2 instead of silently dropping filters. Path parameter values must be non-empty
+single segments and cannot contain slashes, traversal, controls, or ambiguous
+encodings. Request bodies are capped at 64 MiB; file read errors name the `@path`.
+
+Read attempts use fresh connections so Go's automatic replay on reused connections
+cannot exceed the two-attempt wire budget. Catalog filenames sanitize unusual
+server versions with a hash suffix; reported versions retain the server's value.

@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"mime"
 	"net/url"
 	"strings"
 
@@ -17,6 +18,11 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 	var dry bool
 	cmd := &cobra.Command{Use: name + " <METHOD> <path>", Short: "Call a server operation", Args: usageArgs(cobra.ExactArgs(2)), RunE: func(cmd *cobra.Command, args []string) error {
 		method := strings.ToUpper(args[0])
+		if cmd.Flags().Changed("key") {
+			if err := client.ValidateKey(key); err != nil {
+				return err
+			}
+		}
 		target, err := url.Parse(args[1])
 		if err != nil {
 			return &output.Error{Code: "usage", Message: "invalid path"}
@@ -24,6 +30,13 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 		// Validate policy before catalog HTTP, including api's unknown-operation escape.
 		if target.IsAbs() || target.Host != "" || target.Fragment != "" {
 			return &output.Error{Code: "usage", Message: "supply a local /api/ path"}
+		}
+		query, err := url.ParseQuery(target.RawQuery)
+		if err != nil {
+			return &output.Error{Code: "usage", Message: "malformed query string"}
+		}
+		if method != "GET" && method != "HEAD" && strings.HasSuffix(target.Path, "/") {
+			return &output.Error{Code: "usage", Message: "trailing slash on a write is not allowed", Hint: "remove the trailing slash; payment writes require --key"}
 		}
 		cl, cat, err := s.loadCatalog(cmd, dry)
 		if err != nil {
@@ -38,7 +51,6 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 				return err
 			}
 		}
-		query := target.Query()
 		for _, param := range params {
 			k, v, ok := strings.Cut(param, "=")
 			if !ok || k == "" {
@@ -46,7 +58,11 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 			}
 			placeholder := "{" + k + "}"
 			if strings.Contains(target.Path, placeholder) {
+				if err := client.ValidatePathParam(v); err != nil {
+					return err
+				}
 				target.Path = strings.ReplaceAll(target.Path, placeholder, v)
+				target.RawPath = ""
 			} else {
 				query.Add(k, v)
 			}
@@ -58,7 +74,7 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 		op.Keyed = op.Keyed || resolved.Keyed
 		op.FileRoute = op.FileRoute || resolved.FileRoute
 
-		if op.FileRoute || catalog.IsFile(target.Path) {
+		if op.FileRoute || ((method == "GET" || method == "HEAD") && catalog.IsFile(target.Path)) {
 			return &output.Error{Code: "usage", Message: "file routes require download", Hint: "sbp download " + target.Path}
 		}
 		if (op.Keyed || catalog.IsKeyed(method, target.Path)) && method != "GET" && method != "HEAD" && strings.TrimSpace(key) == "" {
@@ -80,14 +96,17 @@ func (s *session) callCommand(name string, allowUnknown bool) *cobra.Command {
 		if dry {
 			return s.w.Success(preview, "Dry run; no request sent", nil)
 		}
-		response, err := cl.Do(cmd.Context(), method, target.String(), body, key)
+		response, err := cl.DoResponse(cmd.Context(), method, target.String(), body, key)
 		if err != nil {
 			return err
 		}
 		var result any
-		if len(response) > 0 && method != "HEAD" {
-			if json.Unmarshal(response, &result) != nil {
-				return &output.Error{Code: "server", Message: "invalid JSON from server"}
+		if len(response.Data) > 0 && method != "HEAD" {
+			media, _, _ := mime.ParseMediaType(response.ContentType)
+			if method != "GET" && media != "application/json" && !strings.HasSuffix(media, "+json") {
+				result = string(response.Data)
+			} else if json.Unmarshal(response.Data, &result) != nil {
+				return &output.Error{Code: "error", Message: "invalid JSON from server"}
 			}
 		}
 		return s.w.Success(result, method+" "+target.Path, nil)

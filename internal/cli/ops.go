@@ -18,6 +18,9 @@ func (s *session) loadCatalog(cmd *cobra.Command, offline bool) (*client.Client,
 	cat, err := catalog.Load(cmd.Context(), cl, conn.Profile, offline)
 	if err == nil && !offline {
 		err = s.warn(versionWarning(cat.Version))
+		if err == nil {
+			err = s.warn(cat.Warning)
+		}
 	}
 	return cl, cat, err
 }
