@@ -14,11 +14,23 @@ permissions:
 jobs:
   artifacts:
     runs-on: ubuntu-latest
+    outputs:
+      stable: ${{ steps.version.outputs.stable }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Require a stable release version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.0.0' }}
+        run: |
+          bash scripts/check-release-version.sh "$RELEASE_VERSION"
+          echo 'stable=true' >> "$GITHUB_OUTPUT"
+      - run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
+      - run: go test ./...
+      - run: bash scripts/accept.sh
       - name: Build archives, checksums and manifest
         run: bash scripts/release-dry-run.sh
         env:
@@ -32,7 +44,7 @@ jobs:
   publish:
     needs: artifacts
     # A manual dispatch from a branch can never publish a release.
-    if: startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || !inputs.dry-run)
+    if: needs.artifacts.outputs.stable == 'true' && startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || !inputs.dry-run)
     runs-on: ubuntu-latest
     permissions:
       contents: write

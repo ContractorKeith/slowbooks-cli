@@ -1,10 +1,8 @@
 package commands
 
 import (
-	"encoding/json"
 	"os"
 	"path/filepath"
-	"reflect"
 	"regexp"
 	"strings"
 	"testing"
@@ -39,14 +37,6 @@ func TestManifestContract(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		var paths []string
-		for _, report := range Reports(cat) {
-			paths = append(paths, "/api/reports/"+report.Name)
-		}
-		var generated []string
-		if err = json.Unmarshal(reportPaths, &generated); err != nil || !reflect.DeepEqual(paths, generated) {
-			t.Fatal("regenerate report paths", err, paths, generated)
-		}
 		seen := map[ManifestOperation]bool{}
 		for _, op := range m.Operations {
 			if seen[op] {
@@ -78,7 +68,7 @@ func TestManifestContract(t *testing.T) {
 			}
 		}
 	}
-	if len(m.Contributes.Service.Downloads) != 6 || len(m.Contributes.Skills) != 0 {
+	if len(m.Contributes.Service.Downloads) != 6 || m.Contributes.Skills == nil || len(m.Contributes.Skills) != 0 {
 		t.Fatal(m.Contributes)
 	}
 	sums := ""
@@ -119,14 +109,26 @@ func TestManifestVersions(t *testing.T) {
 	for _, key := range []string{"HOME", "SLOWBOOKS_CONFIG_DIR", "SLOWBOOKS_CACHE_DIR"} {
 		t.Setenv(key, t.TempDir())
 	}
-	for _, version := range []string{"dev", "", "v1.2.3", "1.2.3-rc.1+build.42"} {
+	for _, version := range []string{"v1.2.3", "1.2.3", "0.0.0"} {
 		if _, err := Manifest(version, ""); err != nil {
 			t.Fatal(version, err)
 		}
 	}
-	for _, version := range []string{"test", "v1.2", "1.02.3", "1.2.3-01", "1.2.3/invalid"} {
+	for _, version := range []string{"dev", "", "v0.1.0-rc.1", "1.2.3+build.42", "test", "v1.2", "1.02.3", "1.2.3-01", "1.2.3/invalid"} {
 		if _, err := Manifest(version, ""); err == nil {
 			t.Fatal("accepted invalid semver", version)
 		}
+	}
+}
+
+func TestManifestPrefixesRejectShortPaths(t *testing.T) {
+	for _, path := range []string{"", "/", "/api", "/api/", "api/invoices", "/other/invoices"} {
+		if _, err := operationPrefixes([]ManifestOperation{{Method: "GET", Path: path}}); err == nil {
+			t.Fatal("accepted malformed path", path)
+		}
+	}
+	got, err := operationPrefixes([]ManifestOperation{{Path: "/api/invoices/{invoice_id}"}, {Path: "/api/customers"}, {Path: "/api/invoices"}})
+	if err != nil || strings.Join(got, ",") != "/api/customers,/api/invoices" {
+		t.Fatal(got, err)
 	}
 }

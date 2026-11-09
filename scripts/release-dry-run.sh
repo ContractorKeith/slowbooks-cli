@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 export TMPDIR="${TMPDIR:-$PWD/.tmp}" CGO_ENABLED=0
 mkdir -p "$TMPDIR" .tmp/dist
 version="${SBP_RELEASE_VERSION:-v0.0.0}"
-case "$version" in v*) ;; *) echo 'version must start with v' >&2; exit 2;; esac
+bash scripts/check-release-version.sh "$version"
 commit="$(git rev-parse HEAD)"
 scratch="$(mktemp -d "$TMPDIR/release.XXXXXX")"
 trap 'rm -r "$scratch"' EXIT

@@ -12,7 +12,6 @@ import (
 	"strings"
 )
 
-//go:generate python3 ../../scripts/generate-reports.py
 //go:embed report_paths.json
 var reportPaths []byte
 
@@ -79,17 +78,14 @@ func NamedOperations() []ManifestOperation {
 	return result
 }
 
-var semver = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$`)
+var marketplaceVersion = regexp.MustCompile(`^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$`)
 
 // Manifest builds the directory contract without contacting a server.
-// Development builds use 0.0.0; tagged builds retain their version.
+// The marketplace accepts stable x.y.z versions only.
 func Manifest(version, checksumFile string) (PluginManifest, error) {
 	version = strings.TrimPrefix(version, "v")
-	if version == "dev" || version == "" {
-		version = "0.0.0"
-	}
-	if !semver.MatchString(version) {
-		return PluginManifest{}, fmt.Errorf("build version must be semver: %s", version)
+	if !marketplaceVersion.MatchString(version) {
+		return PluginManifest{}, fmt.Errorf("marketplace manifest requires a stable x.y.z build version: %s", version)
 	}
 	sums, err := readChecksums(checksumFile)
 	if err != nil {
@@ -101,14 +97,10 @@ func Manifest(version, checksumFile string) (PluginManifest, error) {
 		Author:  map[string]string{"name": "ContractorKeith", "url": "https://github.com/ContractorKeith"}, License: "MIT",
 		Homepage: "https://plugins.kodade.com/plugins/sbp-cli/", Repository: repo, API: 2, TokenRole: "bookkeeper",
 		Operations: NamedOperations(), Pricing: map[string]string{"model": "free"}, Status: "preview"}
-	prefixes := map[string]bool{}
-	for _, op := range m.Operations {
-		prefixes[strings.Join(strings.Split(op.Path, "/")[:3], "/")] = true
+	m.Prefixes, err = operationPrefixes(m.Operations)
+	if err != nil {
+		return PluginManifest{}, err
 	}
-	for prefix := range prefixes {
-		m.Prefixes = append(m.Prefixes, prefix)
-	}
-	sort.Strings(m.Prefixes)
 	m.Contributes.Skills, m.Contributes.Links = []string{}, []string{}
 	m.Contributes.Service = Service{Downloads: map[string]Download{}, Run: "sbp auth login --url <server>; sbp invoices list --json"}
 	for _, target := range []string{"linux-x64", "linux-arm64", "macos-x64", "macos-arm64", "windows-x64", "windows-arm64"} {
@@ -157,4 +149,22 @@ func readChecksums(path string) (map[string]string, error) {
 		result[name] = strings.ToLower(fields[0])
 	}
 	return result, scanner.Err()
+}
+
+// operationPrefixes rejects malformed operation paths before deriving scopes.
+func operationPrefixes(operations []ManifestOperation) ([]string, error) {
+	seen := map[string]bool{}
+	for _, op := range operations {
+		parts := strings.Split(op.Path, "/")
+		if len(parts) < 3 || parts[0] != "" || parts[1] != "api" || parts[2] == "" {
+			return nil, fmt.Errorf("cannot derive prefix from operation path %q", op.Path)
+		}
+		seen[strings.Join(parts[:3], "/")] = true
+	}
+	prefixes := make([]string, 0, len(seen))
+	for prefix := range seen {
+		prefixes = append(prefixes, prefix)
+	}
+	sort.Strings(prefixes)
+	return prefixes, nil
 }

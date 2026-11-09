@@ -9,7 +9,15 @@ Download the archive for your OS and architecture from
 against `SHA256SUMS`, extract it, and put `sbp` (`sbp.exe` on Windows) on your
 PATH. Archives cover Linux, macOS and Windows on x64 and arm64.
 
-Or install from source with Go:
+While this repository is private, release downloads and `go install ...@latest`
+require repository access (`go install` also needs Git credentials). Building
+from a clone you already have works now:
+
+```bash
+go build -o sbp ./cmd/sbp
+```
+
+With repository access, you can also install with Go:
 
 ```bash
 go install github.com/ContractorKeith/slowbooks-cli/cmd/sbp@latest

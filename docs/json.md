@@ -212,7 +212,8 @@ flags must not be blank. Required body fields are declared in the command table.
 `fee_refunded=true` when enabled. Every named write supports an offline dry-run
 with the same redacted preview as the generic layer.
 
-`commands --json` and `--help --agent` return the same success envelope. Its
+`commands --json` and root `--help --agent` return the same success envelope.
+`--agent` requires `--help`; on a subcommand it describes only that subtree. Its
 `data` has `commands` (the generated Cobra tree, including inherited flags) and
 `exit_codes`. Command entries include `name`, positional `args`, `flags` with
 name/type/default/required, `operation` where applicable, `access`
@@ -228,4 +229,7 @@ the selected operation; consult `ops describe` before calling them.
 or jq/quiet transformation. `--checksums SHA256SUMS` requires a valid checksum
 for all six release archives; without it, download hashes are placeholder zeros.
 Do not use placeholder hashes to verify a download. Tagged build versions have
-the leading `v` removed for semver; a local `dev` build uses `0.0.0`.
+the leading `v` removed. Only stable `x.y.z` build versions are accepted;
+prerelease, build-metadata and unversioned development builds exit 2. The local
+release dry run injects `v0.0.0`. Report paths can be regenerated with
+`go test ./internal/commands -run '^TestReportsEmbedded$' -update`.

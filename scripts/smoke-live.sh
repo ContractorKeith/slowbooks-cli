@@ -8,6 +8,29 @@ if test -z "${SLOWBOOKS_URL:-}" || test -z "${SLOWBOOKS_TOKEN_FILE:-}"; then
   exit 2
 fi
 sbp="${SBP_BIN:-sbp}"
+invoice=''
+voided=false
+# Every exit path makes at most one void attempt, including failed/signal exits.
+cleanup() {
+  status=$?
+  trap - EXIT
+  trap '' INT TERM
+  # A failed create may print an error envelope instead of an id.
+  case "$invoice" in ''|*[!0-9]*) invoice='';; esac
+  if test -n "$invoice" && test "$voided" = false; then
+    if "$sbp" invoices void "$invoice" --json; then
+      voided=true
+      printf 'voided invoice id=%s\n' "$invoice"
+    else
+      printf 'could not confirm void for invoice id=%s; inspect it and, if needed, run: sbp invoices void %s --json\n' "$invoice" "$invoice" >&2
+      if test "$status" -eq 0; then status=1; fi
+    fi
+  fi
+  exit "$status"
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 "$sbp" doctor --json
 customer="$("$sbp" customers list --limit 1 --json --jq '.data[0].id // empty')"
 case "$customer" in ''|*[!0-9]*) echo 'no customer found; no invoice created' >&2; exit 2;; esac
@@ -19,7 +42,5 @@ memo="sbp smoke $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 data='{"lines":[{"description":"CLI smoke test","quantity":1,"rate":1,"amount":1}]}'
 "$sbp" invoices create --customer "$customer" --date "$day" --memo "$memo" --data "$data" --dry-run --json
 invoice="$("$sbp" invoices create --customer "$customer" --date "$day" --memo "$memo" --data "$data" --json --jq '.data.id')"
-case "$invoice" in ''|*[!0-9]*) echo 'create returned no invoice id; inspect invoices before another write' >&2; exit 1;; esac
+case "$invoice" in ''|*[!0-9]*) invoice=''; echo 'create returned no invoice id; inspect invoices before another write' >&2; exit 1;; esac
 printf 'created invoice id=%s customer id=%s\n' "$invoice" "$customer"
-"$sbp" invoices void "$invoice" --json
-printf 'voided invoice id=%s\n' "$invoice"

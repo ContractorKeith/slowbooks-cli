@@ -44,7 +44,6 @@ func describeTree(root *cobra.Command) agentHelp {
 	result := agentHelp{Commands: []agentCommand{}, ExitCodes: output.ExitCodes()}
 	var walk func(*cobra.Command)
 	walk = func(cmd *cobra.Command) {
-		cmd.InitDefaultHelpFlag()
 		row, named := rows[cmd.CommandPath()]
 		args := strings.TrimSpace(strings.TrimPrefix(cmd.Use, cmd.Name()))
 		item := agentCommand{Runnable: cmd.Runnable(), Name: cmd.CommandPath(), Args: args, Flags: []agentFlag{}, Access: "read", Next: []string{}, Examples: []string{cmd.CommandPath()}}
@@ -69,8 +68,7 @@ func describeTree(root *cobra.Command) agentHelp {
 		case "sbp auth login", "sbp auth logout", "sbp profile use":
 			item.Access = "write"
 		}
-		cmd.Flags().AddFlagSet(cmd.InheritedFlags())
-		cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		referenceFlags(cmd).VisitAll(func(f *pflag.Flag) {
 			required := len(f.Annotations[cobra.BashCompOneRequiredFlag]) > 0 || (item.Keyed && f.Name == "key")
 			item.Flags = append(item.Flags, agentFlag{f.Name, f.Value.Type(), f.DefValue, required})
 			if required {
@@ -87,7 +85,7 @@ func describeTree(root *cobra.Command) agentHelp {
 			}
 			item.Examples[0] += " --dry-run"
 		}
-		if !cmd.Runnable() || cmd == root {
+		if !cmd.Runnable() || cmd == cmd.Root() {
 			item.Examples[0] += " --help"
 		}
 		result.Commands = append(result.Commands, item)
@@ -127,12 +125,35 @@ func (s *session) addAgent(root *cobra.Command) {
 	normalHelp := root.HelpFunc()
 	root.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		if agent {
-			s.w.JSON = true
-			if err := s.w.Success(describeTree(root), "Command reference", nil); err != nil {
-				_ = s.w.Failure(err)
+			help, _ := cmd.Flags().GetBool("help")
+			if !help {
+				s.w.HelpError = agentUsage()
+				return
 			}
+			s.w.JSON = true
+			s.w.HelpError = s.w.Success(describeTree(cmd), "Command reference", nil)
 			return
 		}
 		normalHelp(cmd, args)
 	})
+}
+
+// referenceFlags combines flag views without copying inherited flags into commands.
+func referenceFlags(cmd *cobra.Command) *pflag.FlagSet {
+	flags := pflag.NewFlagSet(cmd.CommandPath(), pflag.ContinueOnError)
+	flags.AddFlagSet(cmd.Flags())
+	for current := cmd; current != nil; current = current.Parent() {
+		flags.AddFlagSet(current.PersistentFlags())
+	}
+	return flags
+}
+
+func agentUsage() error { return &output.Error{Code: "usage", Message: "--agent requires --help"} }
+
+// Initialize Cobra's lazy help flags once, while constructing the tree.
+func initializeHelp(root *cobra.Command) {
+	root.InitDefaultHelpFlag()
+	for _, child := range root.Commands() {
+		initializeHelp(child)
+	}
 }
