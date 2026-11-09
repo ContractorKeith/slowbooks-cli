@@ -12,6 +12,9 @@ sbp invoices pdf 31 -o invoice-31.pdf
 sbp ops find deposit                        # anything without a named command
 ```
 
-Status: planned, no code yet. See `docs/PLAN.md`.
+Status: M0 harness implemented: `sbp version`, output contract, HTTP client,
+offline acceptance, and Docker e2e at v2.31.10. The commands above are the v1
+target; auth and bookkeeping commands arrive in later milestones. See
+`docs/PLAN.md`.
 
 Requires SlowBooks Pro 2.31 or later. MIT licensed.

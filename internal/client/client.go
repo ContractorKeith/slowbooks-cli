@@ -1,0 +1,166 @@
+// Package client owns all outbound HTTP and the server error mapping.
+package client
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	"github.com/ContractorKeith/slowbooks-cli/internal/output"
+)
+
+type Options struct {
+	URL, Token, Company, Version string
+	Timeout                      time.Duration
+}
+
+type Client struct {
+	base    *url.URL
+	http    *http.Client
+	options Options
+}
+
+// New enforces transport policy before credentials can be sent.
+func New(ctx context.Context, options Options) (*Client, error) {
+	return newClient(ctx, options, defaultLookup)
+}
+
+func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client, error) {
+	base, err := url.Parse(options.URL)
+	if err != nil || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Path != "" && base.Path != "/") {
+		return nil, usage("server URL must contain only a scheme and host")
+	}
+	if base.Scheme != "http" && base.Scheme != "https" {
+		return nil, usage("server URL requires http or https")
+	}
+	if options.Timeout == 0 {
+		options.Timeout = 120 * time.Second
+	}
+	if options.Timeout < time.Second || options.Timeout > 3600*time.Second {
+		return nil, usage("timeout must be 1–3600 seconds")
+	}
+	transport, err := transportFor(ctx, base, lookup)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{base: base, options: options, http: &http.Client{
+		Transport: transport, Timeout: options.Timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
+	}}, nil
+}
+
+// Do performs one attempt. M2 adds the read-only retry policy at this seam.
+func (c *Client) Do(ctx context.Context, method, path string, body []byte, key string) ([]byte, error) {
+	target, err := requestURL(c.base, path)
+	if err != nil {
+		return nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, method, target.String(), bytes.NewReader(body))
+	if err != nil {
+		return nil, usage("invalid request method")
+	}
+	if c.options.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.options.Token)
+	}
+	if c.options.Company != "" {
+		req.Header.Set("X-SlowBooks-Company", c.options.Company)
+	}
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
+	}
+	req.Header.Set("User-Agent", "sbp/"+c.options.Version)
+	if len(body) > 0 {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	read := method == http.MethodGet || method == http.MethodHead
+	if !read {
+		// Idempotency-Key normally enables Go transport replay. Remove GetBody and
+		// keep even empty writes non-replayable, including on stale connections.
+		req.GetBody = nil
+		req.Body = io.NopCloser(bytes.NewReader(body))
+		if len(body) == 0 {
+			req.ContentLength = -1
+		}
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, networkError("request failed or timed out", read)
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, networkError("could not read server response", read)
+	}
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		return data, nil
+	}
+	return nil, responseError(resp.StatusCode, data, read)
+}
+
+func networkError(message string, read bool) *output.Error {
+	hint := "check the server URL and connection"
+	if !read {
+		hint = "check the books before running this write again"
+	}
+	return &output.Error{Code: "network", Message: message, Retryable: read, Hint: hint}
+}
+
+func usage(message string) *output.Error { return &output.Error{Code: "usage", Message: message} }
+
+func requestURL(base *url.URL, path string) (*url.URL, error) {
+	ref, err := url.Parse(path)
+	if err != nil || ref.IsAbs() || ref.Host != "" || ref.Fragment != "" || ref.Opaque != "" {
+		return nil, usage("only /api/ paths and /openapi.json are allowed")
+	}
+	// Reject ambiguous encodings and traversal before a proxy can normalize them.
+	if strings.ContainsAny(ref.Path, "\\%") || strings.Contains(ref.Path, "//") {
+		return nil, usage("ambiguous request path")
+	}
+	for _, part := range strings.Split(ref.Path, "/") {
+		if part == "." || part == ".." {
+			return nil, usage("path traversal is not allowed")
+		}
+	}
+	if !strings.HasPrefix(ref.Path, "/api/") && ref.Path != "/openapi.json" {
+		return nil, usage("only /api/ paths and /openapi.json are allowed")
+	}
+	return base.ResolveReference(ref), nil
+}
+
+func responseError(status int, data []byte, read bool) *output.Error {
+	e := &output.Error{Code: "error", Message: http.StatusText(status)}
+	switch {
+	case status >= 300 && status < 400:
+		e.Code = "usage"
+		e.Message = "server redirect refused"
+	case status == 401:
+		e.Code = "auth"
+	case status == 403:
+		e.Code = "refused"
+	case status == 404:
+		e.Code = "not_found"
+	case status == 409:
+		e.Code = "conflict"
+	case status == 422:
+		e.Code = "invalid"
+	case status >= 500:
+		e.Code = "server"
+		e.Retryable = read
+	}
+	var payload struct {
+		Detail json.RawMessage `json:"detail"`
+	}
+	if json.Unmarshal(data, &payload) == nil && payload.Detail != nil {
+		e.Detail = payload.Detail
+		var message string
+		if json.Unmarshal(payload.Detail, &message) == nil {
+			e.Message = message
+		}
+	}
+	return e
+}
