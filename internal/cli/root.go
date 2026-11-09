@@ -1,8 +1,12 @@
 package cli
 
 import (
+	"context"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/commands"
 	"github.com/ContractorKeith/slowbooks-cli/internal/config"
@@ -68,20 +72,28 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			}{build.Version, build.Commit, commands.VerifiedVersions()}, "sbp "+build.Version, nil)
 		},
 	})
-	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true))
+	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(nil))
 	s.addReads(root)
+
 	return root
 }
 
 // Execute renders all errors exactly once, including cobra parse errors.
 func Execute(root *cobra.Command, w *output.Writer, args []string) int {
+	if raw, jsonRequested := rawDownloadOptions(root, args); raw {
+		w.JSON = w.JSON || jsonRequested
+		w.DownloadStream()
+		root.SetOut(w.HelpWriter())
+		root.SetErr(w.HelpWriter())
+	}
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
 		if rendered, ok := err.(*checksFailed); ok {
 			return output.ExitCode(rendered.cause)
 		}
 		// Argument and flag errors can happen before PersistentPreRunE.
-		w.JSON, _ = root.PersistentFlags().GetBool("json")
+		parsedJSON, _ := root.PersistentFlags().GetBool("json")
+		w.JSON = w.JSON || parsedJSON
 		w.Quiet, _ = root.PersistentFlags().GetBool("quiet")
 		if strings.HasPrefix(err.Error(), "unknown command ") {
 			err = &output.Error{Code: "usage", Message: err.Error()}
@@ -94,5 +106,13 @@ func Execute(root *cobra.Command, w *output.Writer, args []string) int {
 // Run is the process boundary; tests can execute the same root in process.
 func Run(args []string, out, err io.Writer, build Build) int {
 	w := output.New(out, err)
-	return Execute(NewRoot(w, build), w, args)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	// Keep stdout EPIPE in the normal error path rather than process SIGPIPE.
+	brokenPipe := make(chan os.Signal, 1)
+	signal.Notify(brokenPipe, syscall.SIGPIPE)
+	defer signal.Stop(brokenPipe)
+	root := NewRoot(w, build)
+	root.SetContext(ctx)
+	return Execute(root, w, args)
 }

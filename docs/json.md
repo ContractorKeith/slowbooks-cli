@@ -156,3 +156,36 @@ for year-based reports use `--param year=2026`. Named report calls reject
 undeclared `--param` names. The generic `api`/`ops call` layer remains permissive.
 Search sends the query as `q`, returns its grouped response unchanged, and has
 no `--limit` or `--all` flags.
+
+Downloads use `sbp download <path> [-o file|-] [--param k=v]... [--force]`
+or `sbp invoices pdf <id> [-o file|-] [--force]`. Only generic `download` accepts
+`--param`; invoice IDs are single path segments and cannot include `?` or `#`.
+Success data contains `path`, `bytes`, `content_type`, and the sanitized server `filename`.
+The server's RFC 6266 filename (including `filename*`) takes precedence; missing
+or unusable filenames fall back to the final URL path segment, then `download`.
+Names follow Windows-safe rules on every OS: reserved characters become `_`,
+device names gain an `_` prefix, trailing dots/spaces are stripped, and `-`
+becomes `_-`. Names are capped at 255 UTF-8 bytes, retaining the extension where
+it fits. Directory separators, traversal, leading dots, and controls are removed.
+Without `-o`, the file is saved in the current directory. Existing destinations
+exit 2 unless `--force` is set. Files are staged in the destination directory
+and installed atomically after a successful transfer; failures leave the existing
+file intact. No-clobber installation uses an atomic hard link to avoid a race
+between checking and renaming. Filesystems without hard links use exclusive
+creation and copying instead; failed copies remove the new target. That fallback
+can expose the target during copying. `--force` uses rename. Completed files use
+0644 permissions on Unix (fallback creation also respects the process umask).
+Local destination failures exit 2 with the destination named and no staging paths.
+
+`-o -` reserves stdout for raw bytes. With `--json`, the success envelope goes to
+stderr (even with `--quiet`); without it there is no success envelope. Errors and
+diagnostics also go to stderr. Downloads bypass the 64 MiB success-body cap;
+error bodies retain it. Reads retry once on network failure or 502/503/504.
+Staged files rewind before retrying an interrupted body. Raw stdout cannot be
+rewound: after any bytes have been emitted, an interrupted stream exits 8 without
+replaying bytes and is marked non-retryable. Consumers must discard that partial
+stream when the command fails.
+
+SIGINT/Ctrl-C and SIGTERM cancel active downloads, remove staged files, and exit
+8 (`network`, non-retryable). Broken stdout pipes also exit 8 with
+`retryable:false`; stdout remains reserved for raw bytes.

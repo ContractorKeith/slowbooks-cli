@@ -11,11 +11,11 @@ type Flag struct{ Name, Param string }
 
 // Row is the shared description of a named operation. Catalog rows are local reads.
 type Row struct {
-	Name, Method, Path, Noun string
-	Args                     []string
-	Flags                    []Flag
-	Next, Columns            []string
-	List, Write, Catalog     bool
+	Name, Method, Path, Noun       string
+	Args                           []string
+	Flags                          []Flag
+	Next, Columns                  []string
+	List, Write, Catalog, Download bool
 }
 
 // Reads returns independent descriptions; callers may build their own command tree.
@@ -45,6 +45,7 @@ func Reads() []Row {
 	return append(rows,
 		Row{Name: "reports list", Method: "GET", Catalog: true, List: true, Noun: "reports", Columns: []string{"name", "summary"}, Next: []string{"sbp reports run <name>"}},
 		Row{Name: "reports run", Method: "GET", Path: "/api/reports/{name}", Args: []string{"name"}, Flags: []Flag{{Name: "from"}, {Name: "to"}}, Next: []string{"sbp reports list"}},
+		Row{Name: "invoices pdf", Method: "GET", Path: "/api/invoices/{invoice_id}/pdf", Args: []string{"invoice_id"}, Download: true, Next: []string{"sbp invoices show <id>"}},
 		Row{Name: "search", Method: "GET", Path: "/api/search", Args: []string{"q"}, Noun: "results", Next: []string{"sbp customers show <id>"}},
 	)
 }

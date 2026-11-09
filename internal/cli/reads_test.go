@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"net/url"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,6 +27,9 @@ func TestNamedReads(t *testing.T) {
 				value = "Acme & Co"
 			}
 			args = append(args, value)
+		}
+		if row.Download {
+			args = append(args, "-o", filepath.Join(t.TempDir(), "invoice.pdf"))
 		}
 		code, out, _ = invoke(t, "", args...)
 		if code != 0 {
@@ -162,12 +166,10 @@ func TestNamedIDCannotInjectQuery(t *testing.T) {
 		t.Fatal(out)
 	}
 	for _, id := range []string{"1?limit=9", "1#fragment"} {
+		before := len(fake.Requests())
 		code, out, _ = invoke(t, "", "customers", "show", id)
-		reqs := fake.Requests()
-		last := reqs[len(reqs)-1]
-		u, err := url.Parse(last.URI)
-		if code != 5 || err != nil || u.RawQuery != "" || u.Fragment != "" || u.Path != "/api/customers/"+id {
-			t.Fatal(code, out, last, err)
+		if code != 2 || len(fake.Requests()) != before {
+			t.Fatal(code, out, fake.Requests()[before:])
 		}
 	}
 }

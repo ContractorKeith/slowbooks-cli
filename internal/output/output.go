@@ -14,6 +14,7 @@ import (
 
 // Writer owns command output, including help and diagnostics.
 type Writer struct {
+	raw     io.Writer
 	Out     io.Writer
 	Err     io.Writer
 	JSON    bool

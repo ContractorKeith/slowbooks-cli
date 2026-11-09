@@ -15,7 +15,7 @@ func ValidateKey(key string) error {
 
 // ValidatePathParam keeps one placeholder inside its original path segment.
 func ValidatePathParam(value string) error {
-	if value == "" || value == "." || value == ".." || strings.ContainsAny(value, "/\\%{}") || strings.ContainsFunc(value, unicode.IsControl) {
+	if value == "" || value == "." || value == ".." || strings.ContainsAny(value, "/\\%{}?#") || strings.ContainsFunc(value, unicode.IsControl) {
 		return usage("path parameters must be non-empty single segments without traversal or ambiguous encodings")
 	}
 	return nil

@@ -26,7 +26,11 @@ func (s *session) addReads(root *cobra.Command) {
 				root.AddCommand(parent)
 			}
 		}
-		parent.AddCommand(s.readCommand(row, parts[len(parts)-1]))
+		if row.Download {
+			parent.AddCommand(s.downloadCommand(&row))
+		} else {
+			parent.AddCommand(s.readCommand(row, parts[len(parts)-1]))
+		}
 	}
 }
 
