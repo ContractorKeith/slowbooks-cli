@@ -54,14 +54,56 @@ func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client
 		}
 		return nil, err
 	}
+	// A fresh connection per request prevents net/http from replaying a read on a
+	// stale pooled connection outside our two-attempt budget. CLI calls favor a
+	// predictable wire count over connection pooling.
+	transport.DisableKeepAlives = true
 	return &Client{base: base, options: options, maxResponseBytes: 64 << 20, http: &http.Client{
 		Transport: transport, Timeout: options.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}}, nil
 }
 
-// Do performs one attempt. M2 adds the read-only retry policy at this seam.
+// Do retries reads once; writes are always a single attempt.
 func (c *Client) Do(ctx context.Context, method, path string, body []byte, key string) ([]byte, error) {
+	response, err := c.DoResponse(ctx, method, path, body, key)
+	if err != nil {
+		return nil, err
+	}
+	return response.Data, nil
+}
+
+// Response retains the media type so callers can distinguish text from broken JSON.
+type Response struct {
+	Data        []byte
+	ContentType string
+}
+
+func (c *Client) DoResponse(ctx context.Context, method, path string, body []byte, key string) (*Response, error) {
+	if key != "" {
+		if err := ValidateKey(key); err != nil {
+			return nil, err
+		}
+	}
+	method = strings.ToUpper(method)
+	read := method == http.MethodGet || method == http.MethodHead
+	for attempt := 0; ; attempt++ {
+		data, err := c.attempt(ctx, method, path, body, key)
+		if err == nil {
+			return data, nil
+		}
+		e := output.AsError(err)
+		if !read && key != "" && e.Code == "network" && e.Message != "response too large" {
+			e.Retryable = true
+			e.Hint = "rerun with the same --key"
+		}
+		if !read || attempt == 1 || !e.Retryable || ctx.Err() != nil {
+			return nil, e
+		}
+	}
+}
+
+func (c *Client) attempt(ctx context.Context, method, path string, body []byte, key string) (*Response, error) {
 	method = strings.ToUpper(method)
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
@@ -114,7 +156,7 @@ func (c *Client) Do(ctx context.Context, method, path string, body []byte, key s
 		return nil, err
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		return data, nil
+		return &Response{Data: data, ContentType: resp.Header.Get("Content-Type")}, nil
 	}
 	return nil, responseError(resp.StatusCode, data, read)
 }
@@ -133,6 +175,9 @@ func requestURL(base *url.URL, path string) (*url.URL, error) {
 	ref, err := url.Parse(path)
 	if err != nil || ref.IsAbs() || ref.Host != "" || ref.Fragment != "" || ref.Opaque != "" {
 		return nil, usage("only /api/ paths and /openapi.json are allowed")
+	}
+	if _, err := url.ParseQuery(ref.RawQuery); err != nil {
+		return nil, usage("malformed query string")
 	}
 	// Reject ambiguous encodings and traversal before a proxy can normalize them.
 	if strings.ContainsAny(ref.Path, "\\%") || strings.Contains(ref.Path, "//") {

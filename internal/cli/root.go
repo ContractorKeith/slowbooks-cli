@@ -66,7 +66,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			}{build.Version, build.Commit, commands.VerifiedVersions()}, "sbp "+build.Version, nil)
 		},
 	})
-	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand())
+	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true))
 	return root
 }
 

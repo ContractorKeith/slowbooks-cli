@@ -68,6 +68,19 @@ export SLOWBOOKS_CONFIG_DIR="$run/env-config" SLOWBOOKS_URL="$SBP_E2E_URL" SLOWB
 "$run/sbp" doctor --json > "$run/env-doctor.json"
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and all(c["ok"] for c in d["data"]["checks"])' "$run/env-doctor.json"
 echo 'e2e: M1 auth, roles, wrong token, profiles and env-only doctor passed'
+# M2 generic catalog, writes, key guard, and no-write dry-run.
+"$run/sbp" ops find customer --json > "$run/find.json"
+python3 -c 'import json,sys; assert any(o["method"]=="POST" and o["path"]=="/api/customers" for o in json.load(open(sys.argv[1]))["data"])' "$run/find.json"
+"$run/sbp" ops call POST /api/customers --data '{"name":"M2 Generic Customer"}' > "$run/customer.json"
+"$run/sbp" api GET /api/customers > "$run/before.json"
+python3 -c 'import json,sys; assert any(o["name"]=="M2 Generic Customer" for o in json.load(open(sys.argv[1]))["data"])' "$run/before.json"
+status=0
+"$run/sbp" ops call POST /api/payments > "$run/key.json" || status=$?
+test "$status" -eq 2
+"$run/sbp" api POST /api/customers --data '{"name":"Must not be created"}' --dry-run > "$run/dry.json"
+"$run/sbp" api GET /api/customers > "$run/after.json"
+python3 -c 'import json,sys; assert len(json.load(open(sys.argv[1]))["data"])==len(json.load(open(sys.argv[2]))["data"])' "$run/before.json" "$run/after.json"
+echo 'e2e: M2 catalog, generic customer create/list, key guard and dry-run passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
 fi
