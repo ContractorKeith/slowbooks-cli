@@ -7,8 +7,10 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
@@ -98,7 +100,7 @@ func (c *Client) DoResponse(ctx context.Context, method, path string, body []byt
 			e.Hint = "rerun with the same --key"
 		}
 		if !read || attempt == 1 || !e.Retryable || ctx.Err() != nil {
-			return nil, e
+			return nil, err
 		}
 	}
 }
@@ -141,14 +143,18 @@ func (c *Client) attempt(ctx context.Context, method, path string, body []byte, 
 			req.ContentLength = -1
 		}
 	}
+	var sent atomic.Bool
+	if !read {
+		req = req.WithContext(httptrace.WithClientTrace(req.Context(), &httptrace.ClientTrace{WroteHeaders: func() { sent.Store(true) }}))
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, networkError("request failed or timed out", read)
+		return nil, requestNetworkError("request failed or timed out", read, sent.Load())
 	}
 	defer resp.Body.Close()
 	data, err := io.ReadAll(io.LimitReader(resp.Body, c.maxResponseBytes+1))
 	if err != nil {
-		return nil, networkError("could not read server response", read)
+		return nil, requestNetworkError("could not read server response", read, sent.Load())
 	}
 	if int64(len(data)) > c.maxResponseBytes {
 		err := networkError("response too large", read)

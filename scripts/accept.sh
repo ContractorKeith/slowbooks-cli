@@ -44,7 +44,7 @@ chmod 600 "$scratch/input.token"
 "$scratch/sbp" auth login --url "$SLOWBOOKS_URL" --company acme < "$scratch/input.token" > "$scratch/login.json"
 # Normalize only volatile URL and scratch paths; assertions remain in goldens.
 normalize() {
-  python3 -c 'import json,sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>").replace(os.path.normpath(os.environ["SLOWBOOKS_CACHE_DIR"]),"<cache>"); print(json.dumps(json.loads(value),separators=(",",":")))' "$fake_url"
+  python3 -c 'import sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>").replace(os.path.normpath(os.environ["SLOWBOOKS_CACHE_DIR"]),"<cache>"); sys.stdout.write(value)' "$fake_url"
 }
 unset SLOWBOOKS_URL
 echo '== goldens'
@@ -97,4 +97,26 @@ cmp testdata/fake/invoice.pdf "$scratch/evil.pdf"
 "$scratch/sbp" download /api/csv/export/customers -o - | cat > "$scratch/customers.csv"
 cmp testdata/fake/customers.csv "$scratch/customers.csv"
 check_exit 5 download /api/invoices/missing/pdf
+echo '== M5 named writes'
+# M5 each named write has a success and a no-request preview golden.
+"$scratch/sbp" invoices create --customer 1 --date 2026-11-09 --due 2026-12-09 --memo Service --data '{"lines":[]}' --dry-run | normalize | diff - testdata/golden/invoices-create-dry.json
+"$scratch/sbp" invoices create --customer 1 --date 2026-11-09 --due 2026-12-09 --memo Service --data '{"lines":[]}' | diff - testdata/golden/invoices-create.json
+for kind in payments bill-payments; do
+  party=customer; test "$kind" != bill-payments || party=vendor
+  "$scratch/sbp" "$kind" record --key accept-1 --"$party" 1 --date 2026-11-09 --amount 1234.50 --apply 1=1234.50 --dry-run | normalize | diff - "testdata/golden/$kind-record-dry.json"
+  "$scratch/sbp" "$kind" record --key accept-1 --"$party" 1 --date 2026-11-09 --amount 1234.50 --apply 1=1234.50 | diff - "testdata/golden/$kind-record.json"
+done
+for kind in invoices bills expenses journal payments bill-payments; do
+  "$scratch/sbp" "$kind" void 1 --dry-run | normalize | diff - "testdata/golden/$kind-void-dry.json"
+  "$scratch/sbp" "$kind" void 1 | diff - "testdata/golden/$kind-void.json"
+done
+"$scratch/sbp" payments void 1 --fee-refunded --dry-run | normalize | diff - testdata/golden/payments-void-fee-dry.json
+check_exit 2 payments record
+check_exit 2 bill-payments record
+check_exit 6 payments record --key accept-1 --customer 1 --date 2026-11-09 --amount 1
+check_exit 6 bill-payments record --key accept-1 --vendor 1 --date 2026-11-09 --amount 1
+printf 'sbp_readonly\n' > "$scratch/input.token"
+chmod 600 "$scratch/input.token"
+SLOWBOOKS_TOKEN_FILE="$scratch/input.token" check_exit 4 invoices create --customer 1 --date 2026-11-09
+go test ./internal/cli -run '^TestNamedWrites$' -count=1
 echo 'accept: ok'

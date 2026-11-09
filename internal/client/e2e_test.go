@@ -81,6 +81,7 @@ func TestE2E(t *testing.T) {
 			}
 		}
 	}
+	checkClosingDate(t, c)
 	data, err := c.Do(ctx, "GET", "/openapi.json", nil, "")
 	if err != nil {
 		t.Fatal(err)

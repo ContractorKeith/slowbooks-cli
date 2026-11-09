@@ -1,0 +1,1 @@
+{"ok":true,"data":{"amount":"10.00","date":"2026-01-01","id":1,"vendor_id":1},"summary":"bill-payments record","next":["sbp bill-payments show 1"]}

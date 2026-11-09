@@ -1,0 +1,1 @@
+{"ok":true,"data":{"method":"POST","url":"<server>/api/invoices/1/void","headers":{"Authorization":"Bearer \u003credacted\u003e","User-Agent":"sbp/v0.0.0-accept","X-SlowBooks-Company":"acme"},"body":null},"summary":"Dry run; no request sent","next":[]}

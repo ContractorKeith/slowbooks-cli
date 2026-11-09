@@ -21,7 +21,7 @@ func checkDrift(path string) error {
 	if err != nil {
 		return err
 	}
-	for _, row := range Reads() {
+	for _, row := range append(Reads(), Writes()...) {
 		if row.Catalog {
 			continue
 		}
@@ -54,6 +54,9 @@ func checkDrift(path string) error {
 		if match == nil {
 			return fmt.Errorf("%s: missing %s %s", row.Name, row.Method, row.Path)
 		}
+		if err := checkWriteSchema(cat, row); err != nil {
+			return err
+		}
 		if err := checkColumns(cat, row); err != nil {
 			return err
 		}
@@ -73,6 +76,9 @@ func checkDrift(path string) error {
 			}
 		}
 		for _, flag := range row.Flags {
+			if row.Write {
+				continue
+			}
 			found := false
 			for _, p := range match.Params {
 				if p.In == "query" && p.Name == flag.Param {

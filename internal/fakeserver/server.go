@@ -3,6 +3,7 @@ package fakeserver
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,12 +18,14 @@ type Request struct {
 }
 type Server struct {
 	mu        sync.Mutex
+	fixtures  fs.FS
 	requests  []Request
 	customers []json.RawMessage
+	replays   map[string]writeReplay
 }
 
 // New constructs a fake with an independent request recorder.
-func New() *Server { return &Server{} }
+func New() *Server { return &Server{fixtures: testdata.Files} }
 
 // Requests returns a snapshot safe to inspect while the server is running.
 func (s *Server) Requests() []Request {
@@ -69,8 +72,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if r.Method == "POST" && r.URL.Path == "/api/payments" {
-		_, _ = w.Write(body)
+	if s.writeFixture(w, r, body, token) {
 		return
 	}
 	if r.Method != http.MethodGet {
