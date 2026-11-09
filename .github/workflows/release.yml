@@ -31,13 +31,13 @@ jobs:
       - run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
       - run: go test ./...
       - run: bash scripts/accept.sh
-      - name: Build archives, checksums and manifest
+      - name: Build archives and checksums
         run: bash scripts/release-dry-run.sh
         env:
           SBP_RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.0.0' }}
       - uses: actions/upload-artifact@v4
         with:
-          name: sbp-release
+          name: slowbooks-release
           path: .tmp/dist/*
           include-hidden-files: true
           if-no-files-found: error
@@ -51,11 +51,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: sbp-release
+          name: slowbooks-release
           path: dist
       - name: Create compatibility release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.ref_name }}
-        run: gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.zip dist/SHA256SUMS dist/plugin.json --verify-tag --title "$RELEASE_TAG" --notes-file dist/NOTES.md
+        run: gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.zip dist/SHA256SUMS --verify-tag --title "$RELEASE_TAG" --notes-file dist/NOTES.md

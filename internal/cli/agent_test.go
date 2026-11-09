@@ -80,7 +80,7 @@ func TestAgentCoversTree(t *testing.T) {
 		t.Fatal("exit codes drifted")
 	}
 	for _, row := range append(commands.Reads(), commands.Writes()...) {
-		item := indexed["sbp "+row.Name]
+		item := indexed["slowbooks "+row.Name]
 		if item.FileOutput != row.Download || (item.Access == "write") != row.Write {
 			t.Fatal("incorrect metadata", item)
 		}
@@ -109,8 +109,8 @@ func assertRealCommand(t *testing.T, indexed map[string]agentCommand, line strin
 	fields := strings.Fields(line)
 	for n := len(fields); n > 0; n-- {
 		name := strings.Join(fields[:n], " ")
-		if item, ok := indexed[name]; ok && (item.Runnable || line == "sbp --help --agent") {
-			if n == 1 && line != "sbp --help --agent" {
+		if item, ok := indexed[name]; ok && (item.Runnable || line == "slowbooks --help --agent") {
+			if n == 1 && line != "slowbooks --help --agent" {
 				t.Fatalf("unrecognized command: %s", line)
 			}
 			return
@@ -121,7 +121,7 @@ func assertRealCommand(t *testing.T, indexed map[string]agentCommand, line strin
 
 func TestSkillCommandsAndFrontmatter(t *testing.T) {
 	isolate(t)
-	raw, err := os.ReadFile("../../skills/sbp/SKILL.md")
+	raw, err := os.ReadFile("../../skills/slowbooks-cli/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestSkillCommandsAndFrontmatter(t *testing.T) {
 		}
 		front[key] = value
 	}
-	if front["name"] != "sbp" || len(front["name"]) > 64 || len(front["description"]) == 0 || len(front["description"]) > 1024 {
+	if front["name"] != "slowbooks-cli" || len(front["name"]) > 64 || len(front["description"]) == 0 || len(front["description"]) > 1024 {
 		t.Fatal(front)
 	}
 	if len(strings.Split(string(raw), "\n")) >= 150 {
@@ -150,30 +150,12 @@ func TestSkillCommandsAndFrontmatter(t *testing.T) {
 	}
 	count := 0
 	for _, line := range strings.Split(parts[2], "\n") {
-		if strings.HasPrefix(line, "sbp ") {
+		if strings.HasPrefix(line, "slowbooks ") {
 			count++
 			assertRealCommand(t, indexed, line)
 		}
 	}
 	if count == 0 {
 		t.Fatal("no examples checked")
-	}
-}
-
-func TestManifestCLI(t *testing.T) {
-	isolate(t)
-	var out bytes.Buffer
-	if code := Run([]string{"commands", "--manifest"}, &out, &out, Build{"v1.2.3", "test"}); code != 0 {
-		t.Fatal(code, &out)
-	}
-	var manifest commands.PluginManifest
-	if err := json.Unmarshal(out.Bytes(), &manifest); err != nil || manifest.Name != "sbp-cli" || manifest.Version != "1.2.3" {
-		t.Fatalf("%s: %v", &out, err)
-	}
-	for _, args := range [][]string{{"commands", "--manifest", "--checksums", "missing"}, {"commands", "--checksums", "unused"}} {
-		out.Reset()
-		if code := Run(args, &out, &out, Build{}); code != 2 {
-			t.Fatal(code, &out)
-		}
 	}
 }

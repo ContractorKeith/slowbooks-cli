@@ -14,7 +14,7 @@ import (
 func TestSweepPreservesPrefixUserFile(t *testing.T) {
 	dir := t.TempDir()
 	t.Chdir(dir)
-	path := filepath.Join(dir, ".sbp-download-keep.pdf")
+	path := filepath.Join(dir, ".slowbooks-download-keep.pdf")
 	if err := writeOwnedDownloadFixture(path, []byte("user file")); err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestSweepPreservesPrefixUserFile(t *testing.T) {
 
 func TestSweepPreservesRecentStaging(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".sbp-download-77777")
+	path := filepath.Join(dir, ".slowbooks-download-77777")
 	if err := writeOwnedDownloadFixture(path, []byte("recent")); err != nil {
 		t.Fatal(err)
 	}

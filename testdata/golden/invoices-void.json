@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":1,"status":"void"},"summary":"invoices void","next":["sbp invoices show 1"]}
+{"ok":true,"data":{"id":1,"status":"void"},"summary":"invoices void","next":["slowbooks invoices show 1"]}

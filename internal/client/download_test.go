@@ -19,7 +19,7 @@ func TestDownloadHeadersRetryAndUncappedBody(t *testing.T) {
 	var hits int
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits++
-		if r.Method != "GET" || r.Header.Get("Authorization") != "Bearer sbp_test" || r.Header.Get("X-SlowBooks-Company") != "acme" || r.Header.Get("User-Agent") != "sbp/test" || r.URL.Query().Get("q") != "a&b" {
+		if r.Method != "GET" || r.Header.Get("Authorization") != "Bearer sbp_test" || r.Header.Get("X-SlowBooks-Company") != "acme" || r.Header.Get("User-Agent") != "slowbooks/test" || r.URL.Query().Get("q") != "a&b" {
 			t.Error(r)
 		}
 		if hits == 1 {

@@ -26,7 +26,7 @@ func (c *Client) Preview(method, path string, body any, key string) (Preview, er
 	if err != nil {
 		return Preview{}, err
 	}
-	headers := map[string]string{"User-Agent": "sbp/" + c.options.Version}
+	headers := map[string]string{"User-Agent": "slowbooks/" + c.options.Version}
 	if c.options.Token != "" {
 		headers["Authorization"] = "Bearer <redacted>"
 	}

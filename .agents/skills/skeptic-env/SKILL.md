@@ -1,6 +1,6 @@
 ---
 name: skeptic-env
-description: "How a skeptical reviewer builds, seeds and attacks slowbooks-cli (sbp). Read by skeptic-review; not a workflow on its own."
+description: "How a skeptical reviewer builds, seeds and attacks slowbooks-cli (slowbooks). Read by skeptic-review; not a workflow on its own."
 ---
 
 # skeptic-env — slowbooks-cli
@@ -11,9 +11,9 @@ catalog cache is disposable; profile and token files are the only local state.
 ## Stack and commands
 
 ```bash
-go build -o "$PWD/.tmp/sbp" ./cmd/sbp
+go build -o "$PWD/.tmp/slowbooks" ./cmd/slowbooks
 bash scripts/accept.sh
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o .tmp/sbp.exe ./cmd/sbp
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o .tmp/slowbooks.exe ./cmd/slowbooks
 # Build first, then isolate (HOME isolation also moves Go's caches).
 scratch=$(mktemp -d)
 export HOME="$scratch/home" SLOWBOOKS_CONFIG_DIR="$scratch/config" SLOWBOOKS_CACHE_DIR="$scratch/cache"
@@ -22,7 +22,7 @@ mkdir -p "$HOME"
 # Real server: scripts/e2e.sh --keep prints URL and token files (Linux: via newgrp docker).
 ```
 
-Never use the reviewer's `~/.config/sbp` (real Switchboard tokens) or books.kodade.com
+Never use the reviewer's legacy `~/.config/sbp` (real Switchboard tokens) or books.kodade.com
 except through `scripts/smoke-live.sh`, which voids what it creates.
 
 ## Platforms

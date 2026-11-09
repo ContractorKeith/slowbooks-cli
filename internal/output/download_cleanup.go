@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var stagingName = regexp.MustCompile(`^\.sbp-download-[0-9]+$`)
+var stagingName = regexp.MustCompile(`^\.slowbooks-download-[0-9]+$`)
 
 // Cleanup is best effort: an unreadable or busy orphan must not block a download.
 func cleanupDownloads(dir, destination string) {

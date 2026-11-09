@@ -45,7 +45,7 @@ func TestStatusAndHeaders(t *testing.T) {
 				calls := 0
 				s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					calls++
-					for key, want := range map[string]string{"Authorization": "Bearer sbp_test", "X-SlowBooks-Company": "acme", "User-Agent": "sbp/test", "Idempotency-Key": "check-1"} {
+					for key, want := range map[string]string{"Authorization": "Bearer sbp_test", "X-SlowBooks-Company": "acme", "User-Agent": "slowbooks/test", "Idempotency-Key": "check-1"} {
 						if r.Header.Get(key) != want {
 							t.Errorf("%s = %q", key, r.Header.Get(key))
 						}

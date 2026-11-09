@@ -39,7 +39,7 @@ func writeOwnedDownloadFixture(path string, data []byte) error {
 
 func TestWindowsCleanupPreservesOtherOwner(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".sbp-download-66666")
+	path := filepath.Join(dir, ".slowbooks-download-66666")
 	if err := os.WriteFile(path, []byte("keep"), 0600); err != nil {
 		t.Fatal(err)
 	}

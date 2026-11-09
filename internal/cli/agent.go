@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/catalog"
@@ -17,18 +16,23 @@ type agentFlag struct {
 	Default  string `json:"default"`
 	Required bool   `json:"required"`
 }
+type agentOperation struct {
+	Method string `json:"method"`
+	Path   string `json:"path"`
+}
+
 type agentCommand struct {
-	Runnable       bool                        `json:"runnable"`
-	Name           string                      `json:"name"`
-	Args           string                      `json:"args"`
-	Flags          []agentFlag                 `json:"flags"`
-	Operation      *commands.ManifestOperation `json:"operation,omitempty"`
-	Access         string                      `json:"access"`
-	Keyed          bool                        `json:"keyed"`
-	FileOutput     bool                        `json:"file_output"`
-	RequiredFields []string                    `json:"required_fields,omitempty"`
-	Examples       []string                    `json:"examples"`
-	Next           []string                    `json:"next"`
+	Runnable       bool            `json:"runnable"`
+	Name           string          `json:"name"`
+	Args           string          `json:"args"`
+	Flags          []agentFlag     `json:"flags"`
+	Operation      *agentOperation `json:"operation,omitempty"`
+	Access         string          `json:"access"`
+	Keyed          bool            `json:"keyed"`
+	FileOutput     bool            `json:"file_output"`
+	RequiredFields []string        `json:"required_fields,omitempty"`
+	Examples       []string        `json:"examples"`
+	Next           []string        `json:"next"`
 }
 type agentHelp struct {
 	Commands  []agentCommand      `json:"commands"`
@@ -39,7 +43,7 @@ type agentHelp struct {
 func describeTree(root *cobra.Command) agentHelp {
 	rows := map[string]commands.Row{}
 	for _, row := range append(commands.Reads(), commands.Writes()...) {
-		rows["sbp "+row.Name] = row
+		rows["slowbooks "+row.Name] = row
 	}
 	result := agentHelp{Commands: []agentCommand{}, ExitCodes: output.ExitCodes()}
 	var walk func(*cobra.Command)
@@ -55,18 +59,18 @@ func describeTree(root *cobra.Command) agentHelp {
 			item.FileOutput, item.RequiredFields = row.Download, row.Required
 			item.Next = append([]string{}, row.Next...)
 			if row.Path != "" {
-				item.Operation = &commands.ManifestOperation{Method: row.Method, Path: row.Path}
+				item.Operation = &agentOperation{Method: row.Method, Path: row.Path}
 			}
 			if row.Write {
 				item.Access = "write"
 			}
 		}
 		switch cmd.CommandPath() {
-		case "sbp api", "sbp ops call":
+		case "slowbooks api", "slowbooks ops call":
 			item.Access = "dynamic"
-		case "sbp download":
+		case "slowbooks download":
 			item.FileOutput = true
-		case "sbp auth login", "sbp auth logout", "sbp profile use":
+		case "slowbooks auth login", "slowbooks auth logout", "slowbooks profile use":
 			item.Access = "write"
 		}
 		referenceFlags(cmd).VisitAll(func(f *pflag.Flag) {
@@ -99,28 +103,11 @@ func describeTree(root *cobra.Command) agentHelp {
 }
 
 func (s *session) addAgent(root *cobra.Command) {
-	var agent, manifest bool
-	var checksums string
+	var agent bool
 	root.PersistentFlags().BoolVar(&agent, "agent", false, "Machine-readable help (with --help)")
-	cmd := &cobra.Command{Use: "commands", Short: "Describe commands or emit a marketplace manifest", Args: usageArgs(cobra.NoArgs), RunE: func(cmd *cobra.Command, args []string) error {
-		if manifest {
-			value, err := commands.Manifest(s.build.Version, checksums)
-			if err != nil {
-				return &output.Error{Code: "usage", Message: err.Error()}
-			}
-			raw, err := json.Marshal(value)
-			if err != nil {
-				return err
-			}
-			return s.w.Text(string(raw) + "\n")
-		}
-		if checksums != "" {
-			return &output.Error{Code: "usage", Message: "--checksums requires --manifest"}
-		}
+	cmd := &cobra.Command{Use: "commands", Short: "Describe commands", Args: usageArgs(cobra.NoArgs), RunE: func(cmd *cobra.Command, args []string) error {
 		return s.w.Success(describeTree(root), "Command reference", nil)
 	}}
-	cmd.Flags().BoolVar(&manifest, "manifest", false, "Print marketplace plugin.json without an envelope")
-	cmd.Flags().StringVar(&checksums, "checksums", "", "SHA256SUMS for release archives")
 	root.AddCommand(cmd)
 	root.InitDefaultHelpCmd()
 	normalHelp := root.HelpFunc()

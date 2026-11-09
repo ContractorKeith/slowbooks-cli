@@ -34,7 +34,7 @@ func NewDownloadFile(destination string) (*DownloadFile, error) {
 		dir = filepath.Dir(destination)
 	}
 	cleanupDownloads(dir, filepath.Base(destination))
-	file, err := os.CreateTemp(dir, ".sbp-download-*")
+	file, err := os.CreateTemp(dir, ".slowbooks-download-*")
 	if err != nil {
 		return nil, destinationError(destination, err)
 	}

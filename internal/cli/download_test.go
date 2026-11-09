@@ -60,7 +60,7 @@ func TestDownloadFilesAndStdout(t *testing.T) {
 	}
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), ".sbp-download-") {
+		if strings.HasPrefix(e.Name(), ".slowbooks-download-") {
 			t.Fatal(e.Name())
 		}
 	}

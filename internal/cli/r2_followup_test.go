@@ -40,7 +40,7 @@ func TestReviewCompanyLockoutHasPersistentRecovery(t *testing.T) {
 	t.Setenv("SLOWBOOKS_COMPANY", "")
 	served.Store(false)
 	code, out, _ = invoke(t, "", "customers", "list")
-	if code != 2 || !strings.Contains(out, "sbp auth login --profile work --company=") {
+	if code != 2 || !strings.Contains(out, "slowbooks auth login --profile work --company=") {
 		t.Error(code, out)
 	}
 	code, out, _ = invoke(t, "sbp_bookkeeper", "auth", "login", "--profile", "work", "--company=")
@@ -73,7 +73,7 @@ func TestReviewKeyWarningOnlyForWrites(t *testing.T) {
 }
 func TestReviewSkillCompanyPolicyIsConsistent(t *testing.T) {
 	isolate(t)
-	raw, err := os.ReadFile("../../skills/sbp/SKILL.md")
+	raw, err := os.ReadFile("../../skills/slowbooks-cli/SKILL.md")
 	if err != nil {
 		t.Fatal(err)
 	}

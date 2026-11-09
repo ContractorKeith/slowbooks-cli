@@ -1,1 +1,1 @@
-{"ok":true,"data":{"end_date":"2026-12-31","net_income":"45.00","start_date":"2026-01-01","total_expenses":"55.00","total_income":"100.00"},"summary":"reports run","next":["sbp reports list"]}
+{"ok":true,"data":{"end_date":"2026-12-31","net_income":"45.00","start_date":"2026-01-01","total_expenses":"55.00","total_income":"100.00"},"summary":"reports run","next":["slowbooks reports list"]}

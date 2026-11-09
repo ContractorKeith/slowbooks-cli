@@ -54,5 +54,5 @@ func (s *session) opsCommands() *cobra.Command {
 	return ops
 }
 func unknownOperation() error {
-	return &output.Error{Code: "usage", Message: "unknown operation", Hint: "use sbp ops find <words> to find an operation"}
+	return &output.Error{Code: "usage", Message: "unknown operation", Hint: "use slowbooks ops find <words> to find an operation"}
 }

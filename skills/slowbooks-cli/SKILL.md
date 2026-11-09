@@ -1,6 +1,6 @@
 ---
-name: sbp
-description: Use the sbp CLI to read and update SlowBooks Pro from a shell, inspect server operations, run reports, or download invoices and exports. Use when the user wants bookkeeping through the CLI rather than the Switchboard MCP connector.
+name: slowbooks-cli
+description: Use the slowbooks CLI to read and update SlowBooks Pro from a shell, inspect server operations, run reports, or download invoices and exports. Use when the user wants bookkeeping through the CLI rather than the Switchboard MCP connector.
 ---
 
 # SlowBooks Pro from a shell
@@ -13,8 +13,8 @@ Settings → API tokens. Never print a token or put one in a command argument.
 Log in once; the token prompt is hidden (stdin also works):
 
 ```bash
-sbp auth login --url https://your-server.example
-sbp doctor --json
+slowbooks auth login --url https://your-server.example
+slowbooks doctor --json
 ```
 
 For env-only use, set `SLOWBOOKS_URL` and `SLOWBOOKS_TOKEN_FILE` to the server
@@ -25,10 +25,10 @@ it. Use `--profile` for a saved connection.
 ## Discover before constructing a request
 
 ```bash
-sbp commands --json
-sbp --help --agent
-sbp ops find deposit
-sbp ops describe POST /api/deposits
+slowbooks commands --json
+slowbooks --help --agent
+slowbooks ops find deposit
+slowbooks ops describe POST /api/deposits
 ```
 
 The reference includes arguments, flags, required body fields, operation,
@@ -38,11 +38,11 @@ For operations without a named command, use `ops call` and the server schema.
 ## Read
 
 ```bash
-sbp invoices list --open --json
-sbp customers list --limit 10 --json --jq '.data[].id'
-sbp customers list --all --json
-sbp invoices show 31 --json
-sbp reports run profit-loss --from 2026-01-01 --to 2026-12-31 --json
+slowbooks invoices list --open --json
+slowbooks customers list --limit 10 --json --jq '.data[].id'
+slowbooks customers list --all --json
+slowbooks invoices show 31 --json
+slowbooks reports run profit-loss --from 2026-01-01 --to 2026-12-31 --json
 ```
 
 Piped output or `--json` returns `{ok,data,summary,next}`. Errors return
@@ -56,10 +56,10 @@ Confirm the intended record and amounts from the user's request. Preview a
 write with `--dry-run`, inspect it, then run the same command without that flag.
 
 ```bash
-sbp invoices create --customer 7 --date 2026-11-09 --memo Service --data "@invoice.json" --dry-run --json
-sbp payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run --json
-sbp invoices void 31 --dry-run --json
-sbp ops call POST /api/deposits --data "@deposit.json" --dry-run --json
+slowbooks invoices create --customer 7 --date 2026-11-09 --memo Service --data "@invoice.json" --dry-run --json
+slowbooks payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run --json
+slowbooks invoices void 31 --dry-run --json
+slowbooks ops call POST /api/deposits --data "@deposit.json" --dry-run --json
 ```
 
 Invoice data is an object containing `lines`, not a bare array. Explicit flags
@@ -75,8 +75,8 @@ auto-retries writes. Read `next` after success; it points to the record to inspe
 ## Files
 
 ```bash
-sbp invoices pdf 31 -o invoice-31.pdf --json
-sbp download /api/csv/export/customers -o customers.csv --json
+slowbooks invoices pdf 31 -o invoice-31.pdf --json
+slowbooks download /api/csv/export/customers -o customers.csv --json
 ```
 
 Omit `-o` to use the server filename. Existing files require `--force`.
@@ -103,7 +103,7 @@ Keys must match `[A-Za-z0-9._:-]{1,128}`.
 
 On Windows PowerShell 5.1, prefer `--data "@file"` to inline JSON. Save JSON as
 UTF-8; UTF-8 BOMs are accepted, UTF-16 is unsupported. For downloads use `-o file`
-or `cmd /c "sbp.exe ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
+or `cmd /c "slowbooks.exe ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
 
 `POST /api/batch-payments` and the payment `/replace` routes do not accept an
 `Idempotency-Key` on the server. Supplying `--key` cannot make these operations
@@ -111,15 +111,13 @@ retry-safe: never re-run them after an uncertain result. Inspect the books and
 resolve what happened before making another payment change.
 
 When the catalog omits a status enum, verified 2.31.10 bills use
-`draft|unpaid|partial|paid|void`; other operations warn and pass the value through. Generic calls such as `sbp api GET /api/invoices --param status=sent`
+`draft|unpaid|partial|paid|void`; other operations warn and pass the value through. Generic calls such as `slowbooks api GET /api/invoices --param status=sent`
 bypass named status validation.
 
-In PowerShell, type `sbp.exe` for every command: `sbp` is a built-in alias for
-`Set-PSBreakpoint`. Quote file arguments as `"@file"` to avoid PowerShell
-splatting. For example:
+In PowerShell, quote file arguments as `"@file"` to avoid splatting. For example:
 
 ```powershell
-sbp.exe invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
+slowbooks invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
 ```
 
 Company selection accepts only the exact served-company `file` from
@@ -129,7 +127,7 @@ its profile. If the server lists no files (including PostgreSQL),
 selection is unsupported: use `--company=` for its default books. Failed company
 lookups warn and permit the operation. For persistent recovery, unset
 `SLOWBOOKS_COMPANY` or clear a saved selection with
-`sbp auth login --profile <profile> --company=` and enter its token.
+`slowbooks auth login --profile <profile> --company=` and enter its token.
 
 A supplied `--key` only makes a keyed operation safe to replay. On any unkeyed write
 operation it warns that the server ignores the key; never follow a same-key replay

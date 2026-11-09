@@ -27,7 +27,7 @@ func TestNamedWriteNetworkFailures(t *testing.T) {
 	for _, row := range commands.Writes() {
 		before := attempts.Load()
 		code, out, _ := invoke(t, "", writeArgs(row)...)
-		hint := "sbp " + strings.Fields(row.Name)[0] + " list --limit 5"
+		hint := "slowbooks " + strings.Fields(row.Name)[0] + " list --limit 5"
 		retryable := `"retryable":false`
 		if strings.HasSuffix(row.Name, "record") {
 			hint = "rerun with the same --key"

@@ -67,9 +67,9 @@ func TestNamedSuccessHintsUseExactRecordID(t *testing.T) {
 		args []string
 		next string
 	}{
-		{[]string{"invoices", "pdf", "3", "-o", filepath.Join(t.TempDir(), "invoice.pdf")}, "sbp invoices show 3"},
-		{[]string{"invoices", "create", "--customer", "1", "--date", "2026-11-09"}, "sbp invoices show 3"},
-		{[]string{"payments", "record", "--customer", "1", "--date", "2026-11-09", "--amount", "5", "--key", "test"}, "sbp payments show 3"},
+		{[]string{"invoices", "pdf", "3", "-o", filepath.Join(t.TempDir(), "invoice.pdf")}, "slowbooks invoices show 3"},
+		{[]string{"invoices", "create", "--customer", "1", "--date", "2026-11-09"}, "slowbooks invoices show 3"},
+		{[]string{"payments", "record", "--customer", "1", "--date", "2026-11-09", "--amount", "5", "--key", "test"}, "slowbooks payments show 3"},
 	} {
 		code, out, _ := invoke(t, "", tc.args...)
 		var response struct{ Next []string }

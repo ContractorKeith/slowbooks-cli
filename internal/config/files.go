@@ -10,7 +10,7 @@ func stageFile(path string, b []byte) (name string, err error) {
 	if err = os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return "", err
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".sbp-*")
+	f, err := os.CreateTemp(filepath.Dir(path), ".slowbooks-*")
 	if err != nil {
 		return "", err
 	}

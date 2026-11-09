@@ -1,20 +1,20 @@
 # slowbooks-cli
 
-`sbp` is a single Go binary that talks to a running SlowBooks Pro server over its
+`slowbooks` is a single Go binary that talks to a running SlowBooks Pro server over its
 token API: everyday bookkeeping reads and writes with a stable JSON envelope and exit
 codes, plus a generic layer (`api`, `ops`) driven by the server's own `/openapi.json`.
 Built for people scripting their books and for agents that have a shell. Keith's
-project, private, listed in the SBP plugin directory as `sbp-cli`. "Done" for v1 is
+project, private. "Done" for v1 is
 every v1 row in `docs/PLAN.md` §3 working on macOS, Linux and Windows.
 
 ## Status
-v1 complete, awaiting skeptic review — 2026-11-09.
+v0.1.0 — v1 plus two three-platform skeptic rounds; binary is `slowbooks`
 
 ## Commands
 ```bash
-bash scripts/accept.sh     # the acceptance: gate, build, goldens vs sbp-fake, live checks; CI runs this
+bash scripts/accept.sh     # the acceptance: gate, build, goldens vs slowbooks-fake, live checks; CI runs this
 bash scripts/e2e.sh        # real SlowBooks Pro v2.31.10 in Docker (Linux; on Omarchy: echo "bash scripts/e2e.sh" | newgrp docker)
-go build -o sbp ./cmd/sbp && ./sbp version
+go build -o slowbooks ./cmd/slowbooks && ./slowbooks version
 go test -race ./...
 test -z "$(gofmt -l .)" && go vet ./... && staticcheck ./...
 ```
@@ -31,7 +31,7 @@ test -z "$(gofmt -l .)" && go vet ./... && staticcheck ./...
 - Never import, vendor or copy SlowBooks Pro or Switchboard code; HTTP only.
 - Payment writes require `--key`; writes never auto-retry.
 - Env vars keep Switchboard's names (`SLOWBOOKS_URL`, `SLOWBOOKS_TOKEN_FILE`, `SLOWBOOKS_TIMEOUT_SECONDS`).
-- Tests isolate `SLOWBOOKS_CONFIG_DIR`, `SLOWBOOKS_CACHE_DIR` and `HOME`. Never touch `~/.config/sbp` (real Switchboard tokens live there).
+- Tests isolate `SLOWBOOKS_CONFIG_DIR`, `SLOWBOOKS_CACHE_DIR` and `HOME`. Never touch the legacy Switchboard token directory `~/.config/sbp`.
 - Pure Go, `CGO_ENABLED=0`. Tests pin facts, not status prose.
 - One milestone = one issue = one branch = one draft PR = one T3 thread in its own worktree.
 - Commits: `<type>: <description>`, author @ContractorKeith only.

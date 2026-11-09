@@ -31,7 +31,7 @@ The server's list of operations, cached per profile and keyed by server version.
 _Avoid_: Schema, spec, API map
 
 **Named command**:
-A hand-written command, such as `sbp invoices list`, that maps flags onto one operation.
+A hand-written command, such as `slowbooks invoices list`, that maps flags onto one operation.
 _Avoid_: Shortcut, alias, wrapper
 
 **Generic layer**:

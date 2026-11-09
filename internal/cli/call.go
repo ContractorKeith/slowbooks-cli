@@ -67,7 +67,7 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 		return unknownOperation()
 	}
 	if !known {
-		if err = s.warn("operation missing from catalog; use sbp ops find <words> to discover operations"); err != nil {
+		if err = s.warn("operation missing from catalog; use slowbooks ops find <words> to discover operations"); err != nil {
 			return err
 		}
 	}
@@ -98,7 +98,7 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	}
 
 	if op.FileRoute || ((method == "GET" || method == "HEAD") && catalog.IsFile(target.Path)) {
-		return &output.Error{Code: "usage", Message: "file routes require download", Hint: "sbp download " + target.Path}
+		return &output.Error{Code: "usage", Message: "file routes require download", Hint: "slowbooks download " + target.Path}
 	}
 	keyed := op.Keyed || catalog.IsKeyed(method, target.Path)
 	cl = cl.ForOperation(keyed)

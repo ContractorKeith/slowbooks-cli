@@ -32,7 +32,7 @@ func TestE2E(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Generated for this disposable stack; never print the password or tokens.
-	password := "sbp-e2e-disposable-password"
+	password := "slowbooks-e2e-disposable-password"
 	payload, _ := json.Marshal(map[string]string{"password": password, "company_name": "CLI E2E"})
 	if _, err := c.Do(ctx, "POST", "/api/auth/setup", payload, ""); err != nil {
 		t.Fatal(err)

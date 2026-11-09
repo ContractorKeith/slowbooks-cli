@@ -118,3 +118,18 @@ func TestUnexpectedErrorAndHumanOutput(t *testing.T) {
 		t.Fatalf("exit %d: %s", got, out.String())
 	}
 }
+
+func TestRootNameAndRemovedManifestFlags(t *testing.T) {
+	isolate(t)
+	var out bytes.Buffer
+	root := NewRoot(output.New(&out, &out), Build{})
+	if root.Name() != "slowbooks" {
+		t.Fatal(root.Name())
+	}
+	for _, flag := range []string{"--manifest", "--checksums"} {
+		out.Reset()
+		if code := Run([]string{"commands", flag}, &out, &out, Build{}); code != 2 {
+			t.Fatalf("%s: %d %s", flag, code, &out)
+		}
+	}
+}
