@@ -1,18 +1,7 @@
 package commands
 
-import (
-	"io/fs"
-	"strings"
-
-	"github.com/ContractorKeith/slowbooks-cli/testdata"
-)
-
-// VerifiedVersions is derived from the embedded pinned snapshots.
+// VerifiedVersions lists the server versions verified by this build. The test
+// checks this small manifest against the snapshot filenames without shipping them.
 func VerifiedVersions() []string {
-	files, _ := fs.Glob(testdata.Files, "openapi-*.json")
-	versions := make([]string, 0, len(files))
-	for _, name := range files {
-		versions = append(versions, strings.TrimSuffix(strings.TrimPrefix(name, "openapi-"), ".json"))
-	}
-	return versions
+	return []string{"2.31.10"}
 }

@@ -37,5 +37,6 @@ read retries arrive in M2. Timeout is 120 seconds by default, range 1–3600.
 | 8 | `network` / `server` | Connection failure, timeout, response read failure, or HTTP 5xx |
 
 Builds inject `version` and `commit` with `-ldflags '-X main.version=... -X
-main.commit=...'`. `verified_sbp` derives from the embedded
-`testdata/openapi-<version>.json` filenames.
+main.commit=...'`. `verified_sbp` comes from the small manifest in
+`internal/commands`. A unit test checks it against every `testdata/openapi-<version>.json` filename. The production
+binary includes neither the snapshots nor fake fixtures.
