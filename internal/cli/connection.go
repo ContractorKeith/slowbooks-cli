@@ -3,6 +3,8 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
 	"github.com/ContractorKeith/slowbooks-cli/internal/commands"
@@ -12,9 +14,12 @@ import (
 )
 
 type session struct {
-	w     *output.Writer
-	build Build
-	flags config.Flags
+	w               *output.Writer
+	build           Build
+	flags           config.Flags
+	companiesLoaded bool
+	companies       []map[string]any
+	companiesErr    error
 }
 type status struct {
 	URL           string `json:"url"`
@@ -27,6 +32,9 @@ type status struct {
 func (s *session) connect(cmd *cobra.Command) (config.Connection, *client.Client, error) {
 	c, e := config.Resolve(s.flags)
 	if e != nil {
+		return c, nil, e
+	}
+	if e := s.checkEnvTokenURL(c); e != nil {
 		return c, nil, e
 	}
 	token, e := config.TokenFile(c.TokenFile)
@@ -78,7 +86,7 @@ func (s *session) warn(message string) error {
 	if message == "" {
 		return nil
 	}
-	return output.New(s.w.Err, s.w.Err).Text("warning: " + message + "\n")
+	return s.w.Warning(message)
 }
 func (s *session) inspect(cmd *cobra.Command, c *client.Client) (string, string, error) {
 	var system struct {
@@ -126,4 +134,20 @@ func (s *session) profileCommands() *cobra.Command {
 // Keep token values out of diagnostic messages, even when stdin fails.
 func cleanInputError() error {
 	return &output.Error{Code: "auth", Message: "could not read token from stdin", Hint: "pipe a token or run auth login in a terminal"}
+}
+
+// Reject an environment host override before reading a saved server's token.
+func (s *session) checkEnvTokenURL(c config.Connection) error {
+	if os.Getenv("SLOWBOOKS_URL") == "" || os.Getenv("SLOWBOOKS_TOKEN_FILE") != "" || s.flags.URLSet {
+		return nil
+	}
+	store, err := config.Load()
+	if err != nil {
+		return err
+	}
+	p, ok := store.Profiles[c.Profile]
+	if ok && strings.TrimRight(p.URL, "/") != strings.TrimRight(c.URL, "/") {
+		return &output.Error{Code: "auth", Message: "environment URL differs from the selected profile", Hint: "set SLOWBOOKS_TOKEN_FILE for this server"}
+	}
+	return nil
 }

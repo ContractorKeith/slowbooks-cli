@@ -15,15 +15,16 @@ type Param struct {
 	Schema   any    `json:"schema,omitempty"`
 }
 type Operation struct {
-	Method    string   `json:"method"`
-	Path      string   `json:"path"`
-	Summary   string   `json:"summary"`
-	Tags      []string `json:"tags"`
-	Params    []Param  `json:"params"`
-	Body      any      `json:"body_schema"`
-	Keyed     bool     `json:"keyed"`
-	FileRoute bool     `json:"file_route"`
-	RoleNotes string   `json:"role_notes,omitempty"`
+	Method        string   `json:"method"`
+	Path          string   `json:"path"`
+	Summary       string   `json:"summary"`
+	Tags          []string `json:"tags"`
+	Params        []Param  `json:"params"`
+	Body          any      `json:"body_schema"`
+	Keyed         bool     `json:"keyed"`
+	FileRoute     bool     `json:"file_route"`
+	RoleNotes     string   `json:"role_notes,omitempty"`
+	ResponseMedia []string `json:"-"`
 }
 type Catalog struct {
 	Operations    []Operation
@@ -90,6 +91,7 @@ func Parse(data []byte) (*Catalog, error) {
 				}
 			}
 			o.FileRoute = fileRoute(o.Method, path, op, c)
+			o.ResponseMedia = responseMedia(op, c)
 			c.Operations = append(c.Operations, o)
 		}
 	}
@@ -103,9 +105,22 @@ func Parse(data []byte) (*Catalog, error) {
 	return c, nil
 }
 func str(v any) string { s, _ := v.(string); return s }
+
+// IsKeyed recognizes payment routes even when the catalog is incomplete.
 func IsKeyed(method, path string) bool {
-	return strings.EqualFold(method, "POST") && (path == "/api/payments" || path == "/api/bill-payments" || path == "/api/payments/{payment_id}/discount" || path == "/api/bill-payments/{bill_payment_id}/discount")
+	if !strings.EqualFold(method, "POST") {
+		return false
+	}
+	parts := strings.Split(strings.ToLower(path), "/")
+	if len(parts) != 3 && len(parts) != 5 {
+		return false
+	}
+	if parts[0] != "" || parts[1] != "api" || (parts[2] != "payments" && parts[2] != "bill-payments") {
+		return false
+	}
+	return len(parts) == 3 || parts[3] != "" && parts[4] == "discount"
 }
+
 func IsFile(path string) bool {
 	for _, part := range strings.Split(strings.ToLower(path), "/") {
 		switch part {

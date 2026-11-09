@@ -26,7 +26,7 @@ Terms follow `CONTEXT.md`. Decisions that must not be reversed by accident:
 
 1. As a bookkeeper, I run `sbp auth login`, paste my token once, and every later
    command reaches my server and company without retyping anything.
-2. As an agent with a shell, I run `sbp invoices list --status open --json --jq '.data[].id'`
+2. As an agent with a shell, I run `sbp invoices list --open --json --jq '.data[].id'`
    and get only what I need, in a shape documented once.
 3. As an agent, I read `sbp --help --agent` or `sbp commands --json` to learn the
    whole command set in one call instead of loading MCP tool schemas.

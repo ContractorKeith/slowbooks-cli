@@ -52,7 +52,8 @@ func describeTree(root *cobra.Command) agentHelp {
 		}
 		if named {
 			item.Keyed = catalog.IsKeyed(row.Method, row.Path)
-			item.FileOutput, item.RequiredFields, item.Next = row.Download, row.Required, row.Next
+			item.FileOutput, item.RequiredFields = row.Download, row.Required
+			item.Next = append([]string{}, row.Next...)
 			if row.Path != "" {
 				item.Operation = &commands.ManifestOperation{Method: row.Method, Path: row.Path}
 			}

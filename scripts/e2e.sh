@@ -31,10 +31,10 @@ cleanup() {
     echo "kept: $SBP_E2E_URL"
     echo "bookkeeper token file: $SBP_E2E_TOKEN"
     echo "readonly token file: $SBP_E2E_READONLY_TOKEN"
-    echo "teardown: docker compose --env-file '$run/compose.env' -f '$checkout/docker-compose.yml' -p '$project' down -v"
+    echo "teardown: docker compose --env-file '$run/compose.env' -f '$checkout/docker-compose.yml' -p '$project' down -v --rmi local"
   else
     if test "$status" != 0; then compose logs --tail 60; fi
-    compose down -v --remove-orphans
+    compose down -v --rmi local --remove-orphans
     rm -r "$run"
     echo 'e2e: stack torn down'
   fi
@@ -108,6 +108,31 @@ python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and 
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and "M3 Named Customer" in json.dumps(d["data"])' "$run/m3-search.json"
 "$run/sbp" customers list --all --jq '.data[].id' > "$run/m3-jq.jsonl"
 python3 -c 'import json,sys; assert int(sys.argv[2]) in [json.loads(line) for line in open(sys.argv[1])]' "$run/m3-jq.jsonl" "$customer_id"
+# Skeptic regressions: open filtering, duplicate detail and company refusal.
+"$run/sbp" invoices list --open --all > "$run/open-invoices.json"
+"$run/sbp" bills list --open --all > "$run/open-bills.json"
+python3 -c 'import json,sys; rows=json.load(open(sys.argv[1]))["data"]; assert any(r["id"]==int(sys.argv[2]) for r in rows); assert all(r["status"] not in ("paid","void") for r in rows)' "$run/open-invoices.json" "$invoice_id"
+status=0
+"$run/sbp" ops call POST /api/customers --data '{"name":"M3 Named Customer"}' > "$run/duplicate.json" || status=$?
+test "$status" -eq 6
+python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["message"]==e["detail"]["message"] and "similarly-named" in e["message"]' "$run/duplicate.json"
+status=0
+"$run/sbp" doctor --company bogus > "$run/bogus-doctor.json" || status=$?
+test "$status" -eq 2
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(c["name"]=="companies" and not c["ok"] for c in d["data"]["checks"])' "$run/bogus-doctor.json"
+for verb in named generic; do
+  status=0
+  if test "$verb" = named; then
+    "$run/sbp" invoices create --company bogus --customer "$customer_id" --date "$today" --data '{"lines":[]}' > "$run/bogus-write.json" || status=$?
+  else
+    "$run/sbp" api POST /api/invoices --company bogus --data "$invoice_body" > "$run/bogus-write.json" || status=$?
+  fi
+  test "$status" -eq 2
+  python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="usage" and "available companies" in e["hint"]' "$run/bogus-write.json"
+done
+"$run/sbp" invoices list --all > "$run/company-after.json"
+python3 -c 'import json,sys; a,b=[json.load(open(p))["data"] for p in sys.argv[1:]]; assert len(a)==len(b)' "$run/m3-invoices.json" "$run/company-after.json"
+echo 'e2e: skeptic --open, duplicate sentence and bogus company guards passed'
 echo 'e2e: M3 customer/invoice list/show, reports, search and jq passed'
 # M4 real invoice PDF and CSV streaming.
 "$run/sbp" ops call POST /api/customers --data '{"name":"M4 Download Customer"}' > "$run/m4-customer.json"

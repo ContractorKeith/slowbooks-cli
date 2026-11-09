@@ -1,0 +1,1 @@
+{"ok":false,"error":{"code":"invalid","message":"Bill payment already voided","retryable":false,"hint":"","detail":"Bill payment already voided"}}

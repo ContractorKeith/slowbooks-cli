@@ -3,7 +3,9 @@
 Piped stdout, or `--json`, selects JSON. Each command prints one newline-terminated
 object on stdout (except jq streams). A terminal without `--json` gets a table for
 arrays of objects and a key/value view for objects; human errors
-go to stderr, with a non-empty hint on a second line. `--quiet` prints only the
+go to stderr, with a non-empty hint on a second line. All human diagnostics,
+including warnings, escape controls with the table escaper. JSON encoders do not
+HTML-escape `<`, `>` or `&`. `--quiet` prints only the
 successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
 no color. `--jq <expr>` filters the full success envelope by default (for example,
 `--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
@@ -13,8 +15,13 @@ Parse and compile errors are checked before requests or mutations. Errors always
 retain their full envelope, bypassing jq; a streaming evaluation error may follow
 already emitted results. Evaluation uses the command context and the configured
 `--timeout` (including the timeout environment variable). Output is capped at
-100,000 results and 64 MiB including newlines; cancellation, timeout, and cap
-failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
+100,000 results and 64 MiB including newlines. During evaluation, a watchdog
+samples process heap objects every 50 ms and cancels when growth from the
+pre-evaluation baseline exceeds 512 MiB
+(exit 2, `--jq used more than 512 MiB`). The already-loaded response is excluded from this sampled growth budget;
+so allocation bursts may briefly exceed it. If evaluation has not stopped within
+250 ms of cancellation, the CLI emits the error envelope and exits 2.
+Cancellation, timeout, and cap failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
 output, and tables. jq receives exact integers, including IDs beyond 2^53;
 jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 
@@ -32,14 +39,18 @@ Error (all error fields are always present):
 
 `detail` preserves the server's JSON value, including strings and validation-error
 arrays; it is `null` when absent. `message` uses the server's sentence when detail
-is a string. Writes are never automatically retried. Network failures on unkeyed
+is a string, an object with `message`, or an array whose first item has
+`message` or `msg` (in that order). Writes are never automatically retried. Network failures and HTTP 502/503/504 on unkeyed
 writes have
 `retryable:false` and a hint to check the books before running the write again.
-Network failures on writes carrying `--key` have `retryable:true` and the hint
-`rerun with the same --key`. Reads retry once on network failure or HTTP
-502/503/504. Only network errors and HTTP 502/503/504 are marked
+Network failures and HTTP 502/503/504 on writes carrying `--key` have `retryable:true` and the hint
+`rerun with the same --key`. The known exceptions are `POST /api/batch-payments`
+and payment `/replace` routes: the server ignores keys on them, so they retain
+`retryable:false` and check-the-books advice even when `--key` is supplied.
+Never re-run these operations after an uncertain result. Reads retry once on
+network failure or HTTP 502/503/504. Only network errors and HTTP 502/503/504 are marked
 retryable for reads; HTTP 500/501 are not. Timeout is 120 seconds by default, range
-1–3600, and also bounds DNS lookup. Responses larger than 64 MiB fail with exit 8
+1–3600, per attempt, and also bounds DNS lookup. Reads may take two attempts. Responses larger than 64 MiB fail with exit 8
 and message `response too large`; these size failures are not retryable.
 
 | Exit | code | Meaning |
@@ -51,7 +62,7 @@ and message `response too large`; these size failures are not retryable.
 | 4 | `refused` | HTTP 403, including role or closing-date refusal |
 | 5 | `not_found` | HTTP 404 |
 | 6 | `conflict` | HTTP 409, including mismatched payment-key reuse |
-| 7 | `invalid` | HTTP 422 |
+| 7 | `invalid` | HTTP 400 business refusal or HTTP 422 validation failure |
 | 8 | `network` / `server` | Connection failure, timeout, response read failure, or HTTP 5xx |
 
 Builds inject `version` and `commit` with `-ldflags '-X main.version=... -X
@@ -99,7 +110,12 @@ server provides them, and `truncated`. Local schema references are resolved with
 a depth cap of 8, a 600-node budget, and a 16,000-character budget; alias chains
 have a 60-reference cap and cycle detection. Cuts are marked. Calls return the
 server JSON (or null for an empty response). Successful writes
-with a non-JSON media type return raw text as a JSON string. Malformed JSON
+with an explicitly declared non-JSON response retain raw text as a JSON string.
+If a write omits or leaves Content-Type blank, valid JSON is decoded first.
+If an operation declares JSON and instead returns an undeclared non-JSON body,
+the command exits 1 with `retryable:false`, message `the server answered with a
+page, not JSON; the write may have happened`, and a check-the-books hint. The
+write is never replayed. Unknown operations retain permissive text handling. Malformed JSON
 responses and local cache errors use `error` (exit 1), not `server`. Catalog write
 failures warn on stderr and commands continue using the fetched catalog.
 
@@ -111,11 +127,11 @@ Unknown `ops call` operations exit 2; `api` permits them with a stderr warning.
 File routes are GET/HEAD operations identified by their path or declared non-JSON
 success media types; they exit 2 with a `sbp download <path>` hint. Writes on
 paths containing file-related words remain callable. Keyed writes without `--key`
-exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. Repeated
+exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. UTF-8 BOMs are
+accepted; UTF-16 input exits 2 with a save-as-UTF-8 hint. Repeated
 `--param name=value` fills path placeholders and otherwise adds query values.
 
-Keys are 1–200 bytes and must contain no control characters or leading/trailing
-whitespace; an explicitly empty `--key` exits 2. Writes with trailing slashes
+Keys must match `[A-Za-z0-9._:-]{1,128}`; an explicitly empty `--key` exits 2. Writes with trailing slashes
 are refused with exit 2 before lookup or sending. Malformed query strings exit
 2 instead of silently dropping filters. Path parameter values must be non-empty
 single segments and cannot contain slashes, traversal, controls, or ambiguous
@@ -130,7 +146,8 @@ M3 named reads use the same request path as `ops call`. Lists default to 50 rows
 For operations declaring `limit`, the client requests one extra row to detect
 truncation. The summary says `N of N+ shown; --all for everything` when this
 probe finds more rows. Lists without server limits trim locally and report
-`N of M shown; --all for everything`; otherwise the summary is `M <noun>`.
+`N of M shown; --all for everything`; otherwise the summary is `M <noun>`, using a singular noun for one row.
+On a TTY, trimmed-list summaries also appear on stderr.
 Non-array responses pass through unchanged.
 
 `--all` follows declared `skip` or `offset` paging until a short page. Page size
@@ -146,7 +163,12 @@ control characters. Padding uses a small local display-width function covering
 common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
 complex joined emoji sequences and terminal-specific widths may vary.
 
-Invoices and bills expose `--status`; the pinned server has no `since` parameter.
+Invoices and bills expose `--open`, mapping to declared `open_only=true`, and
+`--status`, validated locally against catalog enums. The pinned invoice response
+declares `draft|sent|partial|paid|void`; its query omits that enum. Bill schemas
+omit it entirely, so values pass through with a stderr note when no enum is
+declared. A value outside a declared enum exits 2 before the list request.
+Generic `api`/`ops call --param status=value` bypass named status validation. The pinned server has no `since` parameter.
 `reports list` discovers direct JSON report operations from the catalog, since
 there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
 Date flags use the chosen operation's declared parameters: `--from` targets
@@ -233,3 +255,17 @@ the leading `v` removed. Only stable `x.y.z` build versions are accepted;
 prerelease, build-metadata and unversioned development builds exit 2. The local
 release dry run injects `v0.0.0`. Report paths can be regenerated with
 `go test ./internal/commands -run '^TestReportsEmbedded$' -update`.
+
+Release `version` output omits the leading `v`, matching the plugin manifest.
+Named PDF and write hints use the actual record ID. Unknown record placeholders
+are omitted. Environment-only catalog cache
+directories include a short hash of the server URL and company. If an environment
+URL differs from the selected profile and no environment token file is supplied,
+commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before sending its token.
+Company and key header values are validated locally (exit 2), including dry-run.
+Login and online writes validate non-empty company selections against
+`/api/companies`. A successful lookup refuses unknown selections; failed lookups
+warn `could not verify company X: <reason>` and allow login/writes to proceed.
+Doctor always checks the list and fails its companies row for lookup errors or
+unknown selections. One company lookup is cached in memory per invocation. Offline
+dry-run makes no HTTP requests and cannot verify company membership.

@@ -87,6 +87,9 @@ func (s *session) login(cmd *cobra.Command, args []string) error {
 	if e != nil {
 		return e
 	}
+	if e = s.checkCompany(cmd, c, false); e != nil {
+		return e
+	}
 	p.Role = r
 	if e = config.SaveLogin(name, p, token); e != nil {
 		return e

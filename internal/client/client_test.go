@@ -36,7 +36,7 @@ func TestStatusAndHeaders(t *testing.T) {
 		code         string
 		retryable    bool
 	}{
-		{200, 0, "", false}, {204, 0, "", false}, {301, 2, "usage", false}, {400, 1, "error", false}, {401, 3, "auth", false}, {403, 4, "refused", false},
+		{200, 0, "", false}, {204, 0, "", false}, {301, 2, "usage", false}, {400, 7, "invalid", false}, {401, 3, "auth", false}, {403, 4, "refused", false},
 		{404, 5, "not_found", false}, {409, 6, "conflict", false}, {422, 7, "invalid", false}, {429, 1, "error", false}, {500, 8, "server", false}, {501, 8, "server", false}, {502, 8, "server", true}, {503, 8, "server", true}, {504, 8, "server", true},
 	}
 	for _, tc := range cases {
@@ -73,7 +73,7 @@ func TestStatusAndHeaders(t *testing.T) {
 				}
 				if err != nil {
 					e := output.AsError(err)
-					if e.Code != tc.code || e.Retryable != (tc.retryable && method == "GET") {
+					if e.Code != tc.code || e.Retryable != tc.retryable {
 						t.Fatalf("error = %+v", e)
 					}
 					detail, _ := json.Marshal(e.Detail)

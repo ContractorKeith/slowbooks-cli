@@ -72,7 +72,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 				Version  string   `json:"version"`
 				Commit   string   `json:"commit"`
 				Verified []string `json:"verified_sbp"`
-			}{build.Version, build.Commit, commands.VerifiedVersions()}, "sbp "+build.Version, nil)
+			}{strings.TrimPrefix(build.Version, "v"), build.Commit, commands.VerifiedVersions()}, "sbp "+strings.TrimPrefix(build.Version, "v"), nil)
 		},
 	})
 	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(nil))

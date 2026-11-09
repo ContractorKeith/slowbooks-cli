@@ -38,7 +38,7 @@ For operations without a named command, use `ops call` and the server schema.
 ## Read
 
 ```bash
-sbp invoices list --status open --json
+sbp invoices list --open --json
 sbp customers list --limit 10 --json --jq '.data[].id'
 sbp customers list --all --json
 sbp invoices show 31 --json
@@ -94,5 +94,24 @@ Discard partial streamed output if the command fails.
 | 4 | Role or closing-date refusal |
 | 5 | Not found |
 | 6 | Conflict, including key reused with a different body |
-| 7 | Invalid data (422) |
+| 7 | Business refusal (400) or invalid data (422) |
 | 8 | Network, timeout, or server failure |
+
+Use `--open` for open invoices/bills. `--status` accepts invoices
+`draft|sent|partial|paid|void`, bills `draft|unpaid|partial|paid|void`.
+Keys must match `[A-Za-z0-9._:-]{1,128}`. Login and writes refuse unknown companies
+with exit 2 and a hint listing available companies.
+
+On Windows PowerShell 5.1, prefer `--data @file` to inline JSON. Save JSON as
+UTF-8; UTF-8 BOMs are accepted, UTF-16 is unsupported. For downloads use `-o file`
+or `cmd /c "sbp ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
+
+`POST /api/batch-payments` and the payment `/replace` routes do not accept an
+`Idempotency-Key` on the server. Supplying `--key` cannot make these operations
+retry-safe: never re-run them after an uncertain result. Inspect the books and
+resolve what happened before making another payment change.
+
+When the catalog omits a status enum, `--status` warns and passes the value to
+the server. Generic calls such as `sbp api GET /api/invoices --param status=sent`
+bypass named status validation. A failed company lookup warns and permits login
+or writes; a successful lookup still refuses unknown companies.

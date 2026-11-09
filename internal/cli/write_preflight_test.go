@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/ContractorKeith/slowbooks-cli/internal/config"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 )
 
@@ -16,6 +17,11 @@ func TestNamedWriteLookupFailureDoesNotSuggestCheckingBooks(t *testing.T) {
 	if code, out, _ := invoke(t, "sbp_bookkeeper", "auth", "login", "--url", server); code != 0 {
 		t.Fatal(out)
 	}
+	store, err := config.Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SLOWBOOKS_TOKEN_FILE", store.Profiles[store.Default].TokenFile)
 	t.Setenv("SLOWBOOKS_URL", "http://lookup.invalid")
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

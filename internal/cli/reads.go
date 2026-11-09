@@ -27,7 +27,7 @@ func (s *session) addReads(root *cobra.Command) {
 			}
 		}
 		if row.Download {
-			parent.AddCommand(s.downloadCommand(&row))
+			parent.AddCommand(s.readDownloadCommand(row))
 		} else {
 			parent.AddCommand(s.readCommand(row, parts[len(parts)-1]))
 		}
@@ -36,6 +36,7 @@ func (s *session) addReads(root *cobra.Command) {
 
 func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 	limit, all := 50, false
+	var open bool
 	values := make([]string, len(row.Flags))
 	var params []string
 	use := name
@@ -66,7 +67,7 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 				opts.params = append(opts.params, arg+"="+args[i])
 			}
 		}
-		opts.prepare = func(op catalog.Operation, query url.Values) error {
+		opts.prepare = func(cat *catalog.Catalog, op catalog.Operation, query url.Values) error {
 			for i, flag := range row.Flags {
 				if !cmd.Flags().Changed(flag.Name) {
 					continue
@@ -78,7 +79,16 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 				if param == "" {
 					return undeclaredParam(op, "--"+flag.Name)
 				}
-				query.Set(param, values[i])
+				value := values[i]
+				if flag.Name == "open" {
+					value = fmt.Sprint(open)
+				}
+				if flag.Name == "status" {
+					if err := s.validateStatus(cat, op, value); err != nil {
+						return err
+					}
+				}
+				query.Set(param, value)
 			}
 			for name := range query {
 				found := false
@@ -101,7 +111,11 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 			if row.List {
 				if list, ok := data.([]any); ok {
 					total := len(list)
-					summary = fmt.Sprintf("%d %s", total, row.Noun)
+					noun := row.Noun
+					if total == 1 {
+						noun = singular(noun)
+					}
+					summary = fmt.Sprintf("%d %s", total, noun)
 					if !all && total > limit {
 						data = list[:limit]
 						summary = fmt.Sprintf("%d of %d shown; --all for everything", limit, total)
@@ -134,6 +148,10 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 		cmd.Flags().BoolVar(&all, "all", false, "Show every row")
 	}
 	for i, flag := range row.Flags {
+		if flag.Name == "open" {
+			cmd.Flags().BoolVar(&open, "open", false, "Show open records")
+			continue
+		}
 		cmd.Flags().StringVar(&values[i], flag.Name, "", "Filter by "+flag.Name)
 	}
 	if row.Name == "reports run" {

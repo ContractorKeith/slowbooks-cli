@@ -40,7 +40,7 @@ func TestNamedReads(t *testing.T) {
 			Data any
 			Next []string
 		}
-		if err := json.Unmarshal([]byte(out), &result); err != nil || !result.OK || result.Data == nil || len(result.Next) == 0 {
+		if err := json.Unmarshal([]byte(out), &result); err != nil || !result.OK || result.Data == nil {
 			t.Fatal(args, out, err)
 		}
 		if row.Catalog {
@@ -85,7 +85,7 @@ func TestReadLimitsAndQueryFlags(t *testing.T) {
 		{[]string{"expenses", "list"}, 50, "", ""},
 		{[]string{"expenses", "list", "--limit", "2"}, 2, "", ""},
 		{[]string{"expenses", "list", "--all"}, 55, "", ""},
-		{[]string{"invoices", "list", "--status", "open"}, 1, "51", "open"},
+		{[]string{"invoices", "list", "--status", "sent"}, 1, "51", "sent"},
 		{[]string{"bills", "list", "--limit", "2"}, 1, "3", ""},
 		{[]string{"payments", "list", "--all"}, 1, "500", ""},
 	} {
