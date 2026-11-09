@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/commands"
+	"github.com/ContractorKeith/slowbooks-cli/internal/config"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -14,8 +15,8 @@ type Build struct{ Version, Commit string }
 
 // NewRoot constructs an isolated command tree for each invocation.
 func NewRoot(w *output.Writer, build Build) *cobra.Command {
-	var profile, company, jq string
-	var timeout int
+	s := &session{w: w, build: build}
+	var jq string
 	var noColor bool
 	jsonOutput, quiet := w.JSON, w.Quiet
 	root := &cobra.Command{
@@ -26,8 +27,12 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			if jq != "" {
 				return &output.Error{Code: "usage", Message: "--jq: not yet"}
 			}
-			if timeout < 1 || timeout > 3600 {
-				return &output.Error{Code: "usage", Message: "--timeout must be 1–3600 seconds"}
+			s.flags.ProfileSet = cmd.Flags().Changed("profile")
+			s.flags.CompanySet = cmd.Flags().Changed("company")
+			s.flags.TimeoutSet = cmd.Flags().Changed("timeout")
+			s.flags.URLSet = cmd.Flags().Changed("url")
+			if _, e := config.Timeout(s.flags); e != nil {
+				return e
 			}
 			return nil
 		},
@@ -39,12 +44,12 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	root.SetErr(w.HelpWriter())
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return &output.Error{Code: "usage", Message: err.Error()} })
 	flags := root.PersistentFlags()
-	flags.StringVar(&profile, "profile", "", "Saved profile")
-	flags.StringVar(&company, "company", "", "Company")
+	flags.StringVar(&s.flags.Profile, "profile", "", "Saved profile")
+	flags.StringVar(&s.flags.Company, "company", "", "Company")
 	flags.BoolVar(&jsonOutput, "json", jsonOutput, "Print JSON")
 	flags.BoolVar(&quiet, "quiet", quiet, "Print data only")
 	flags.StringVar(&jq, "jq", "", "Filter JSON (not yet)")
-	flags.IntVar(&timeout, "timeout", 120, "Request timeout in seconds")
+	flags.IntVar(&s.flags.Timeout, "timeout", 120, "Request timeout in seconds")
 	flags.BoolVar(&noColor, "no-color", false, "Disable color")
 	root.AddCommand(&cobra.Command{
 		Use: "version", Short: "Show build and verified server versions", Args: func(cmd *cobra.Command, args []string) error {
@@ -61,6 +66,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			}{build.Version, build.Commit, commands.VerifiedVersions()}, "sbp "+build.Version, nil)
 		},
 	})
+	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand())
 	return root
 }
 
@@ -68,6 +74,9 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 func Execute(root *cobra.Command, w *output.Writer, args []string) int {
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
+		if rendered, ok := err.(*checksFailed); ok {
+			return output.ExitCode(rendered.cause)
+		}
 		// Argument and flag errors can happen before PersistentPreRunE.
 		w.JSON, _ = root.PersistentFlags().GetBool("json")
 		w.Quiet, _ = root.PersistentFlags().GetBool("quiet")

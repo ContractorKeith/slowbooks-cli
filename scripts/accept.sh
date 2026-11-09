@@ -38,8 +38,18 @@ export SLOWBOOKS_URL="$(cat "$scratch/fake.url")"
 # Run the fake/client seam against this separately built process.
 SBP_ACCEPT_URL="$SLOWBOOKS_URL" go test ./internal/client -run '^TestAcceptFake$' -count=1
 
+printf 'sbp_bookkeeper\n' > "$scratch/input.token"
+chmod 600 "$scratch/input.token"
+"$scratch/sbp" auth login --url "$SLOWBOOKS_URL" --company acme < "$scratch/input.token" > "$scratch/login.json"
+# Normalize only volatile URL and scratch paths; assertions remain in goldens.
+normalize() {
+  python3 -c 'import json,sys,os; value=sys.stdin.read().replace(os.environ["SLOWBOOKS_URL"],"<server>").replace(os.environ["SLOWBOOKS_CONFIG_DIR"],"<config>"); print(json.dumps(json.loads(value),separators=(",",":")))'
+}
 echo '== goldens'
 "$scratch/sbp" version --json | diff - testdata/golden/version.json
+"$scratch/sbp" auth status --json | normalize | diff - testdata/golden/auth-status.json
+"$scratch/sbp" profile list --json | normalize | diff - testdata/golden/profile-list.json
+"$scratch/sbp" doctor --json | normalize | diff - testdata/golden/doctor.json
 echo '== live exit-code checks'
 check_exit() {
   expected="$1"; shift
@@ -51,5 +61,10 @@ check_exit 0 version --json
 check_exit 2 nosuch
 check_exit 2 version --timeout 0
 check_exit 2 version --jq .data
+printf 'sbp_wrong\n' > "$scratch/input.token"
+SLOWBOOKS_TOKEN_FILE="$scratch/input.token" check_exit 3 auth status --json
+printf 'sbp_bookkeeper\n' > "$scratch/input.token"
+chmod 644 "$scratch/input.token"
+SLOWBOOKS_TOKEN_FILE="$scratch/input.token" check_exit 3 auth status --json
 # All error codes are also exercised in process at the root seam by the gate.
 echo 'accept: ok'
