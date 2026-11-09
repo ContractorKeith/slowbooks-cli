@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
+	"github.com/ContractorKeith/slowbooks-cli/internal/commands"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -18,13 +19,14 @@ type downloadData struct {
 	Filename    string `json:"filename"`
 }
 
-func (s *session) downloadCommand(named bool) *cobra.Command {
+func (s *session) downloadCommand(row *commands.Row) *cobra.Command {
 	var destination string
 	var params []string
 	var force bool
 	use := "download <path>"
-	if named {
-		use = "pdf <id>"
+	if row != nil {
+		parts := strings.Fields(row.Name)
+		use = parts[len(parts)-1] + " <id>"
 	}
 	cmd := &cobra.Command{Use: use, Short: "Download a server file", Args: usageArgs(cobra.ExactArgs(1)), RunE: func(cmd *cobra.Command, args []string) error {
 		var raw io.Writer
@@ -32,11 +34,11 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 			raw = s.w.DownloadStream()
 		}
 		target := args[0]
-		if named {
+		if row != nil {
 			if err := client.ValidatePathParam(target); err != nil {
 				return err
 			}
-			target = "/api/invoices/" + url.PathEscape(target) + "/pdf"
+			target = strings.ReplaceAll(row.Path, "{"+row.Args[0]+"}", url.PathEscape(target))
 		}
 		u, err := url.Parse(target)
 		if err != nil {
@@ -108,18 +110,16 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 		if destination == "-" {
 			s.w.Quiet = false
 		}
-		return s.w.Success(downloadData{saved, response.Bytes, response.ContentType, filename}, "Downloaded "+filename, nil)
+		var next []string
+		if row != nil {
+			next = row.Next
+		}
+		return s.w.Success(downloadData{saved, response.Bytes, response.ContentType, filename}, "Downloaded "+filename, next)
 	}}
 	cmd.Flags().StringVarP(&destination, "output", "o", "", "Destination file, or - for stdout")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing file")
-	if !named {
+	if row == nil {
 		cmd.Flags().StringArrayVar(&params, "param", nil, "Path or query parameter k=v (repeatable)")
 	}
-	return cmd
-}
-
-func (s *session) invoiceDownloadCommands() *cobra.Command {
-	cmd := &cobra.Command{Use: "invoices", Short: "Work with invoices"}
-	cmd.AddCommand(s.downloadCommand(true))
 	return cmd
 }
