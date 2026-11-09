@@ -1,10 +1,17 @@
 # JSON output
 
 Piped stdout, or `--json`, selects JSON. Each command prints one newline-terminated
-object on stdout. A terminal without `--json` gets a key/value view; human errors
+object on stdout (except jq streams). A terminal without `--json` gets a table for
+arrays of objects and a key/value view for objects; human errors
 go to stderr, with a non-empty hint on a second line. `--quiet` prints only the
 successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
-no color. `--jq` is reserved and returns a usage error until M3.
+no color. `--jq <expr>` filters the full success envelope by default (for example,
+`--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
+(`--quiet --jq '.[].id'`). Each result is JSON on its own line, including quoted
+strings; `empty` emits nothing. jq parse, compile and evaluation errors exit 2.
+Parse and compile errors are checked before requests or mutations. Errors always
+retain their full envelope, bypassing jq; a streaming evaluation error may follow
+already emitted results.
 
 Success (all fields are always present; `next` is an array, including when empty):
 
@@ -112,3 +119,19 @@ encodings. Request bodies are capped at 64 MiB; file read errors name the `@path
 Read attempts use fresh connections so Go's automatic replay on reused connections
 cannot exceed the two-attempt wire budget. Catalog filenames sanitize unusual
 server versions with a hash suffix; reported versions retain the server's value.
+
+M3 named reads use the same request path as `ops call`. Lists default to 50 rows;
+`--limit N` requires a positive N, and `--all` cannot be combined with `--limit`.
+The limit is sent only when the operation declares a `limit` query parameter,
+and arrays are also trimmed locally. `--all` sends no limit and skips local
+trimming; server defaults still apply. Counts describe the received array:
+`N of M shown; --all for everything` when locally trimmed, `M <noun>` otherwise.
+Non-array responses pass through unchanged. TTY tables use the named command's
+columns, or up to five scalar fields in alphabetical order for generic results.
+
+Invoices and bills expose `--status`; the pinned server has no `since` parameter.
+`reports list` discovers direct JSON report operations from the catalog, since
+there is no report index API. `reports run <name>` calls `/api/reports/<name>`;
+`--from` and `--to` map to `start_date` and `end_date`, while repeatable
+`--param k=v` passes report-specific query parameters. Use `ops describe` to
+check which parameters a report supports. Search sends the query as `q`.

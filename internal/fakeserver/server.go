@@ -61,7 +61,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if r.Method == "GET" {
-			customers := s.customers
+			customers := append(customerFixtures(), s.customers...)
 			if customers == nil {
 				customers = []json.RawMessage{}
 			}
@@ -82,6 +82,9 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(403)
 		data, _ := testdata.Files.ReadFile("fake/forbidden.json")
 		_, _ = w.Write(data)
+		return
+	}
+	if s.readFixture(w, r) {
 		return
 	}
 	var name string

@@ -81,6 +81,29 @@ test "$status" -eq 2
 "$run/sbp" api GET /api/customers > "$run/after.json"
 python3 -c 'import json,sys; assert len(json.load(open(sys.argv[1]))["data"])==len(json.load(open(sys.argv[2]))["data"])' "$run/before.json" "$run/after.json"
 echo 'e2e: M2 catalog, generic customer create/list, key guard and dry-run passed'
+# M3 named reads; setup writes use the generic layer.
+today="$(date +%Y-%m-%d)"
+year_start="$(date +%Y)-01-01"
+"$run/sbp" ops call POST /api/customers --data '{"name":"M3 Named Customer"}' > "$run/m3-customer.json"
+customer_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m3-customer.json")"
+invoice_body="$(python3 -c 'import json,sys; print(json.dumps({"customer_id":int(sys.argv[1]),"date":sys.argv[2],"lines":[{"description":"M3 service","quantity":"1","rate":"100","amount":"100"}]}))' "$customer_id" "$today")"
+"$run/sbp" ops call POST /api/invoices --data "$invoice_body" > "$run/m3-invoice.json"
+invoice_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m3-invoice.json")"
+"$run/sbp" customers list --all > "$run/m3-customers.json"
+"$run/sbp" customers show "$customer_id" > "$run/m3-customer-show.json"
+"$run/sbp" invoices list --all > "$run/m3-invoices.json"
+"$run/sbp" invoices show "$invoice_id" > "$run/m3-invoice-show.json"
+python3 -c 'import json,sys; rows=json.load(open(sys.argv[1]))["data"]; shown=json.load(open(sys.argv[2]))["data"]; assert shown["id"]==int(sys.argv[3]) and any(r["id"]==shown["id"] for r in rows)' "$run/m3-customers.json" "$run/m3-customer-show.json" "$customer_id"
+python3 -c 'import json,sys; rows=json.load(open(sys.argv[1]))["data"]; shown=json.load(open(sys.argv[2]))["data"]; assert shown["id"]==int(sys.argv[3]) and any(r["id"]==shown["id"] for r in rows)' "$run/m3-invoices.json" "$run/m3-invoice-show.json" "$invoice_id"
+"$run/sbp" reports list > "$run/m3-reports.json"
+python3 -c 'import json,sys; assert any(r["name"]=="profit-loss" for r in json.load(open(sys.argv[1]))["data"])' "$run/m3-reports.json"
+"$run/sbp" reports run profit-loss --from "$year_start" --to "$today" > "$run/m3-report.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and isinstance(d["data"],dict) and d["data"]' "$run/m3-report.json"
+"$run/sbp" search 'M3 Named Customer' > "$run/m3-search.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and "M3 Named Customer" in json.dumps(d["data"])' "$run/m3-search.json"
+"$run/sbp" customers list --all --jq '.data[].id' > "$run/m3-jq.jsonl"
+python3 -c 'import json,sys; assert int(sys.argv[2]) in [json.loads(line) for line in open(sys.argv[1])]' "$run/m3-jq.jsonl" "$customer_id"
+echo 'e2e: M3 customer/invoice list/show, reports, search and jq passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
 fi

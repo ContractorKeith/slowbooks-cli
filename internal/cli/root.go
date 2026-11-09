@@ -24,8 +24,8 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 		Use:               "sbp", Short: "SlowBooks Pro from the shell", SilenceErrors: true, SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			w.JSON, w.Quiet = jsonOutput, quiet
-			if jq != "" {
-				return &output.Error{Code: "usage", Message: "--jq: not yet"}
+			if err := w.SetJQ(jq, cmd.Flags().Changed("jq")); err != nil {
+				return err
 			}
 			s.flags.ProfileSet = cmd.Flags().Changed("profile")
 			s.flags.CompanySet = cmd.Flags().Changed("company")
@@ -48,7 +48,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	flags.StringVar(&s.flags.Company, "company", "", "Company")
 	flags.BoolVar(&jsonOutput, "json", jsonOutput, "Print JSON")
 	flags.BoolVar(&quiet, "quiet", quiet, "Print data only")
-	flags.StringVar(&jq, "jq", "", "Filter JSON (not yet)")
+	flags.StringVar(&jq, "jq", "", "Filter JSON with jq")
 	flags.IntVar(&s.flags.Timeout, "timeout", 120, "Request timeout in seconds")
 	flags.BoolVar(&noColor, "no-color", false, "Disable color")
 	root.AddCommand(&cobra.Command{
@@ -67,6 +67,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 		},
 	})
 	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true))
+	s.addReads(root)
 	return root
 }
 

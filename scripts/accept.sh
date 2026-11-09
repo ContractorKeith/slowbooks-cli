@@ -55,6 +55,13 @@ echo '== goldens'
 "$scratch/sbp" ops find customer --json | diff - testdata/golden/ops-find.json
 "$scratch/sbp" ops describe POST /api/payments --json | diff - testdata/golden/ops-describe.json
 "$scratch/sbp" api POST /api/payments --key check-1 --data '{"amount":1}' --dry-run --json | normalize | diff - testdata/golden/dry-run.json
+# M3 named reads and output contracts.
+"$scratch/sbp" customers list | diff - testdata/golden/customers-list.json
+"$scratch/sbp" invoices show 1 | diff - testdata/golden/invoices-show.json
+"$scratch/sbp" reports run profit-loss | diff - testdata/golden/reports-run.json
+"$scratch/sbp" customers list --jq '.data[].id' | diff - testdata/golden/customers-jq.json
+"$scratch/sbp" customers list --quiet | diff - testdata/golden/customers-quiet.json
+"$scratch/sbp" expenses list | diff - testdata/golden/expenses-trimmed.json
 echo '== live exit-code checks'
 check_exit() {
   expected="$1"; shift
@@ -68,7 +75,7 @@ check_exit 2 ops call POST /api/payments
 go test ./internal/cli -run '^TestGenericCallsAndSafety$' -count=1
 check_exit 2 nosuch
 check_exit 2 version --timeout 0
-check_exit 2 version --jq .data
+check_exit 2 version --jq '['
 printf 'sbp_wrong\n' > "$scratch/input.token"
 chmod 600 "$scratch/input.token"
 SLOWBOOKS_TOKEN_FILE="$scratch/input.token" check_exit 3 auth status --json
