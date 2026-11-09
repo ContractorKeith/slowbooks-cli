@@ -10,6 +10,10 @@ import (
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 )
 
+// MaxTokenLength excludes the optional final LF or CRLF.
+const MaxTokenLength = 4096
+const MaxTokenFileSize = MaxTokenLength + 2
+
 type Flags struct {
 	Profile, Company, URL                      string
 	Timeout                                    int
@@ -80,6 +84,14 @@ func Resolve(f Flags) (Connection, error) {
 	c.Profile = Selected(f, s)
 	p, ok := s.Profiles[c.Profile]
 	if !environment && !ok {
+		if c.Profile == "" {
+			if os.Getenv("SLOWBOOKS_URL") != "" {
+				return c, missingTokenFile()
+			}
+			if os.Getenv("SLOWBOOKS_TOKEN_FILE") != "" {
+				return c, missingURL()
+			}
+		}
 		return c, missing()
 	}
 	c.URL = first(os.Getenv("SLOWBOOKS_URL"), p.URL)
@@ -91,8 +103,11 @@ func Resolve(f Flags) (Connection, error) {
 		c.Company = f.Company
 	}
 	c.TokenFile = first(os.Getenv("SLOWBOOKS_TOKEN_FILE"), p.TokenFile)
-	if c.URL == "" || c.TokenFile == "" {
-		return c, missing()
+	if c.URL == "" {
+		return c, missingURL()
+	}
+	if c.TokenFile == "" {
+		return c, missingTokenFile()
 	}
 	return c, nil
 }
@@ -104,11 +119,18 @@ func ValidateToken(b []byte) (string, error) {
 		s = strings.TrimSuffix(s, "\n")
 		s = strings.TrimSuffix(s, "\r")
 	}
-	if len(s) <= 4 || !strings.HasPrefix(s, "sbp_") || strings.ContainsFunc(s, unicode.IsSpace) {
+	if len(s) > MaxTokenLength || len(s) <= 4 || !strings.HasPrefix(s, "sbp_") || strings.ContainsFunc(s, unicode.IsSpace) {
 		return "", invalidToken()
 	}
 	return s, nil
 }
 func invalidToken() error {
 	return &output.Error{Code: "auth", Message: "invalid token: expected one line starting with sbp_ and no whitespace", Hint: "run sbp auth login"}
+}
+
+func missingURL() error {
+	return &output.Error{Code: "usage", Message: "server URL is missing", Hint: "set SLOWBOOKS_URL or run sbp auth login --url <server>"}
+}
+func missingTokenFile() error {
+	return &output.Error{Code: "auth", Message: "token file is missing", Hint: "set SLOWBOOKS_TOKEN_FILE or run sbp auth login"}
 }

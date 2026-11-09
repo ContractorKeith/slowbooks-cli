@@ -181,3 +181,10 @@ func responseError(status int, data []byte, read bool) *output.Error {
 	}
 	return e
 }
+
+// WithoutCompany shares the transport but probes token-wide permissions.
+func (c *Client) WithoutCompany() *Client {
+	clone := *c
+	clone.options.Company = ""
+	return &clone
+}

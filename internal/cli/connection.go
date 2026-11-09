@@ -47,13 +47,14 @@ func getJSON(cmd *cobra.Command, c *client.Client, path string, dest any) error 
 	return nil
 }
 func role(cmd *cobra.Command, c *client.Client) (string, error) {
+	c = c.WithoutCompany()
 	for i, path := range []string{"/api/audit?limit=1", "/api/employees"} {
 		_, e := c.Do(cmd.Context(), "GET", path, nil, "")
 		if e != nil {
 			if output.AsError(e).Code == "refused" {
 				return []string{"readonly", "accountant"}[i], nil
 			}
-			return "", e
+			return "unknown", e
 		}
 	}
 	return "bookkeeper", nil
@@ -90,7 +91,12 @@ func (s *session) inspect(cmd *cobra.Command, c *client.Client) (string, string,
 		return "", "", e
 	}
 	r, e := role(cmd, c)
-	return system.Version, r, e
+	if e != nil {
+		if warningErr := s.warn("could not determine token role; role is unknown"); warningErr != nil {
+			return "", "", warningErr
+		}
+	}
+	return system.Version, r, nil
 }
 func usageArgs(check cobra.PositionalArgs) cobra.PositionalArgs {
 	return func(cmd *cobra.Command, args []string) error {

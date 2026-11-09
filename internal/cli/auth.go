@@ -34,7 +34,15 @@ func (s *session) authCommands() *cobra.Command {
 		if e = config.Logout(name); e != nil {
 			return e
 		}
-		return s.w.Success(map[string]string{"profile": name}, "Logged out", nil)
+		st, e := config.Load()
+		if e != nil {
+			return e
+		}
+		summary := "Logged out"
+		if st.Default != "" {
+			summary += "; default profile: " + st.Default
+		}
+		return s.w.Success(map[string]string{"profile": name}, summary, nil)
 	}})
 	return a
 }
@@ -59,12 +67,12 @@ func (s *session) login(cmd *cobra.Command, args []string) error {
 		raw, e = term.ReadPassword(int(f.Fd()))
 		_ = output.New(s.w.Err, s.w.Err).Text("\n")
 	} else {
-		raw, e = io.ReadAll(io.LimitReader(input, 4097))
+		raw, e = io.ReadAll(io.LimitReader(input, config.MaxTokenFileSize+1))
 	}
 	if e != nil {
 		return cleanInputError()
 	}
-	if len(raw) > 4096 {
+	if len(raw) > config.MaxTokenFileSize {
 		return cleanInputError()
 	}
 	token, e := config.ValidateToken(raw)

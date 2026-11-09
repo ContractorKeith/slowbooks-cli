@@ -32,11 +32,15 @@ func ConfigCheck(f Flags) (string, error) {
 }
 func TokenCheck(path string) (string, error) {
 	if _, e := TokenFile(path); e != nil {
-		return path + ": " + e.Error() + "; " + output.AsError(e).Hint, e
+		detail := e.Error()
+		if hint := output.AsError(e).Hint; hint != "" {
+			detail += "; " + hint
+		}
+		return detail, e
 	}
 	info, e := os.Stat(path)
 	if e != nil {
-		return path, e
+		return path, fileError("inspect token file", path, e)
 	}
 	detail := fmt.Sprintf("%s (%04o)", path, info.Mode().Perm())
 	if runtime.GOOS == "windows" {

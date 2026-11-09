@@ -57,3 +57,21 @@ prerequisites mark dependent checks unavailable. Environment-only connections
 need no config file. The catalog check is informational (`not built yet`) until
 M2. Version mismatches are warnings in stderr and in the version row, and do not
 fail commands. Check the process exit and individual row `ok` values for health.
+
+Role probes omit the company header because roles belong to tokens. A non-403
+probe failure leaves login/status successful with role `unknown` and a stderr
+warning; `/api/system` must still accept the token. Doctor reports probe failures
+in its role check. Login's system request retains the selected company header.
+
+Config mutations share an OS-backed lock with a two-second bounded wait (busy
+config exits 3); process death releases the lock. Login stages the token, saves
+profiles, then replaces the token. Logout saves profiles before removing its
+managed token. Failed final token operations restore the previous profile data.
+Deleting the default promotes the alphabetically first remaining profile and
+names that default in the logout summary.
+
+Tokens are at most 4096 bytes, excluding an optional LF or CRLF. Non-regular
+files are refused before reading; Unix opens are nonblocking to guard against
+replacement with a FIFO. File-access errors exit 3 and identify the path.
+An environment URL without a token file names `SLOWBOOKS_TOKEN_FILE` in its hint;
+a missing server URL is a usage error (exit 2).
