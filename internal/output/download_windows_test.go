@@ -28,7 +28,7 @@ func TestWindowsDownloadInUse(t *testing.T) {
 	defer f.Abort()
 	_, _ = f.Write([]byte("new"))
 	_, e = f.Save(context.Background(), "", true)
-	if e == nil || !strings.Contains(e.Error(), "file is in use") {
+	if ExitCode(e) != 2 || AsError(e).Code != "usage" || !strings.Contains(e.Error(), "file is in use") {
 		t.Fatal(e)
 	}
 }
