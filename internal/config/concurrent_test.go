@@ -2,8 +2,10 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 )
 
 func TestConcurrentLoginsPreserveProfilesAndCredentials(t *testing.T) {
@@ -22,7 +24,16 @@ func TestConcurrentLoginsPreserveProfilesAndCredentials(t *testing.T) {
 					name = "shared"
 				}
 				role := fmt.Sprintf("r%d", i)
-				failures <- SaveLogin(name, Profile{URL: "https://example.test", Role: role}, "sbp_"+role)
+				// On slow disks, 32 serialized fsyncs may exceed the public two-second
+				// lock budget. Retry only a refused lock acquisition, never a mutation.
+				deadline := time.Now().Add(30 * time.Second)
+				for {
+					err := SaveLogin(name, Profile{URL: "https://example.test", Role: role}, "sbp_"+role)
+					if err == nil || !strings.HasPrefix(err.Error(), "config is busy: ") || time.Now().After(deadline) {
+						failures <- err
+						return
+					}
+				}
 			}(i)
 		}
 		close(start)
