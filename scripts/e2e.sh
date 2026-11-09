@@ -4,6 +4,7 @@ set -eu
 cd "$(dirname "$0")/.."
 export TMPDIR="$PWD/.tmp"
 mkdir -p "$TMPDIR/e2e"
+export GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)"
 keep=0
 case "${1:-}" in --keep) keep=1;; '') ;; *) echo 'usage: scripts/e2e.sh [--keep]' >&2; exit 2;; esac
 checkout="$TMPDIR/e2e/SlowBooks-Pro-2026"
@@ -114,6 +115,29 @@ python3 -c 'import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.load(op
 "$run/sbp" download /api/csv/export/customers -o - > "$run/m4-customers.csv"
 python3 -c 'import csv,sys; rows=list(csv.reader(open(sys.argv[1]))); assert len(rows)>1 and any("M4 Download Customer" in row for row in rows)' "$run/m4-customers.csv"
 echo 'e2e: M4 invoice PDF filename/signature and CSV stdout passed'
+
+# M5 named writes, payment replay and role refusal.
+"$run/sbp" ops call POST /api/customers --data '{"name":"Harbor Orchard Receivables"}' > "$run/m5-customer.json"
+customer_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m5-customer.json")"
+"$run/sbp" invoices create --customer "$customer_id" --date "$today" --memo 'M5 service' --data '{"lines":[{"description":"M5 service","quantity":"1","rate":"100","amount":"100"}]}' > "$run/m5-invoice.json"
+invoice_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m5-invoice.json")"
+"$run/sbp" payments record --key e2e-1 --customer "$customer_id" --amount 100.00 --date "$today" --apply "$invoice_id=100.00" > "$run/m5-payment.json"
+"$run/sbp" payments list --all > "$run/m5-before.json"
+"$run/sbp" payments record --key e2e-1 --customer "$customer_id" --amount 100.00 --date "$today" --apply "$invoice_id=100.00" > "$run/m5-replay.json"
+"$run/sbp" payments list --all > "$run/m5-after.json"
+python3 -c 'import json,sys; a,b,c,d=[json.load(open(p))["data"] for p in sys.argv[1:]]; assert a["id"]==b["id"] and len(c)==len(d)' "$run/m5-payment.json" "$run/m5-replay.json" "$run/m5-before.json" "$run/m5-after.json"
+status=0
+"$run/sbp" payments record --key e2e-1 --customer "$customer_id" --amount 99 --date "$today" --apply "$invoice_id=99" > "$run/m5-conflict.json" || status=$?
+test "$status" -eq 6
+payment_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m5-payment.json")"
+"$run/sbp" payments void "$payment_id" > "$run/m5-payment-void.json"
+"$run/sbp" invoices void "$invoice_id" > "$run/m5-invoice-void.json"
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["data"]["is_voided"] is True and json.load(open(sys.argv[2]))["data"]["status"]=="void"' "$run/m5-payment-void.json" "$run/m5-invoice-void.json"
+status=0
+SLOWBOOKS_TOKEN_FILE="$SBP_E2E_READONLY_TOKEN" "$run/sbp" invoices create --customer "$customer_id" --date "$today" > "$run/m5-readonly.json" || status=$?
+test "$status" -eq 4
+python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="refused" and e["message"]==e["detail"]' "$run/m5-readonly.json"
+echo 'e2e: M5 invoice create, payment replay/count, key conflict, voids and readonly refusal passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
 fi

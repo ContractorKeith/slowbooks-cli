@@ -189,3 +189,19 @@ stream when the command fails.
 SIGINT/Ctrl-C and SIGTERM cancel active downloads, remove staged files, and exit
 8 (`network`, non-retryable). Broken stdout pipes also exit 8 with
 `retryable:false`; stdout remains reserved for raw bytes.
+
+M5 named writes include invoice create, customer/vendor payment record, and void
+for invoices, bills, expenses, journal, payments and bill-payments. Success hints
+name the returned record's show command. Unkeyed network-failure hints name the
+corresponding list command with `--limit 5`. Record commands require a stable
+caller key, such as a check number or bank reference.
+
+Write `--data` accepts an object from inline JSON, `@file`, or stdin (`-`);
+explicit flags override its fields. Invoice `--memo` maps to the server's `notes`,
+`--due` to `due_date`. Repeated `--apply ID=AMOUNT` replaces `allocations` using
+`invoice_id` for payments or `bill_id` for bill payments. Flag amounts are JSON
+numbers preserving the supplied decimal spelling; data amounts retain their
+original string or number representation. IDs also retain integer precision.
+`--fee-refunded` is available only for payment voids and sends the query parameter
+`fee_refunded=true` when enabled. Every named write supports an offline dry-run
+with the same redacted preview as the generic layer.

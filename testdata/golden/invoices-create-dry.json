@@ -1,0 +1,1 @@
+{"ok":true,"data":{"method":"POST","url":"<server>/api/invoices","headers":{"Authorization":"Bearer <redacted>","Content-Type":"application/json","User-Agent":"sbp/v0.0.0-accept","X-SlowBooks-Company":"acme"},"body":{"customer_id":1,"date":"2026-11-09","due_date":"2026-12-09","lines":[],"notes":"Service"}},"summary":"Dry run; no request sent","next":[]}

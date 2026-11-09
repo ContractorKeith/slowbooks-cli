@@ -19,6 +19,7 @@ type Server struct {
 	mu        sync.Mutex
 	requests  []Request
 	customers []json.RawMessage
+	replays   map[string]writeReplay
 }
 
 // New constructs a fake with an independent request recorder.
@@ -69,8 +70,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if r.Method == "POST" && r.URL.Path == "/api/payments" {
-		_, _ = w.Write(body)
+	if s.writeFixture(w, r, body, token) {
 		return
 	}
 	if r.Method != http.MethodGet {

@@ -6,7 +6,7 @@ import (
 	"github.com/ContractorKeith/slowbooks-cli/internal/catalog"
 )
 
-// Flag maps a friendly flag to a server query parameter.
+// Flag maps a friendly flag to a server query parameter or write body field.
 type Flag struct{ Name, Param string }
 
 // Row is the shared description of a named operation. Catalog rows are local reads.
