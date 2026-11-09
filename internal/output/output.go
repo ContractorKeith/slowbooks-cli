@@ -1,22 +1,28 @@
 package output
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-	"sort"
+	"time"
 
+	"github.com/itchyny/gojq"
 	"golang.org/x/term"
 )
 
 // Writer owns command output, including help and diagnostics.
 type Writer struct {
-	Out   io.Writer
-	Err   io.Writer
-	JSON  bool
-	Quiet bool
-	TTY   bool
+	Out     io.Writer
+	Err     io.Writer
+	JSON    bool
+	Quiet   bool
+	TTY     bool
+	Columns []string
+	jq      *gojq.Code
+	ctx     context.Context
+	timeout time.Duration
 }
 
 // New detects a terminal only for actual file descriptors.
@@ -37,35 +43,20 @@ type Success struct {
 
 // Success renders data only in quiet mode; otherwise it emits an envelope or view.
 func (w *Writer) Success(data any, summary string, next []string) error {
+	if next == nil {
+		next = []string{}
+	}
+	var value any = Success{true, data, summary, next}
 	if w.Quiet {
-		return json.NewEncoder(w.Out).Encode(data)
+		value = data
 	}
-	if w.JSON || !w.TTY {
-		if next == nil {
-			next = []string{}
-		}
-		return json.NewEncoder(w.Out).Encode(Success{true, data, summary, next})
+	if w.jq != nil {
+		return w.filter(value)
 	}
-	encoded, err := json.Marshal(data)
-	if err != nil {
-		return err
+	if w.Quiet || w.JSON || !w.TTY {
+		return json.NewEncoder(w.Out).Encode(value)
 	}
-	var fields map[string]any
-	if err := json.Unmarshal(encoded, &fields); err != nil {
-		_, err = fmt.Fprintln(w.Out, string(encoded))
-		return err
-	}
-	keys := make([]string, 0, len(fields))
-	for key := range fields {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if _, err := fmt.Fprintf(w.Out, "%s: %v\n", key, fields[key]); err != nil {
-			return err
-		}
-	}
-	return nil
+	return w.human(data)
 }
 
 // Failure sends JSON errors to stdout and human diagnostics to stderr.

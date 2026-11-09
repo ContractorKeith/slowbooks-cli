@@ -1,10 +1,22 @@
 # JSON output
 
 Piped stdout, or `--json`, selects JSON. Each command prints one newline-terminated
-object on stdout. A terminal without `--json` gets a key/value view; human errors
+object on stdout (except jq streams). A terminal without `--json` gets a table for
+arrays of objects and a key/value view for objects; human errors
 go to stderr, with a non-empty hint on a second line. `--quiet` prints only the
 successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
-no color. `--jq` is reserved and returns a usage error until M3.
+no color. `--jq <expr>` filters the full success envelope by default (for example,
+`--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
+(`--quiet --jq '.[].id'`). Each result is JSON on its own line, including quoted
+strings; `empty` emits nothing. jq parse, compile and evaluation errors exit 2.
+Parse and compile errors are checked before requests or mutations. Errors always
+retain their full envelope, bypassing jq; a streaming evaluation error may follow
+already emitted results. Evaluation uses the command context and the configured
+`--timeout` (including the timeout environment variable). Output is capped at
+100,000 results and 64 MiB including newlines; cancellation, timeout, and cap
+failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
+output, and tables. jq receives exact integers, including IDs beyond 2^53;
+jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 
 Success (all fields are always present; `next` is an array, including when empty):
 
@@ -112,3 +124,35 @@ encodings. Request bodies are capped at 64 MiB; file read errors name the `@path
 Read attempts use fresh connections so Go's automatic replay on reused connections
 cannot exceed the two-attempt wire budget. Catalog filenames sanitize unusual
 server versions with a hash suffix; reported versions retain the server's value.
+
+M3 named reads use the same request path as `ops call`. Lists default to 50 rows;
+`--limit N` requires a positive N, and `--all` cannot be combined with `--limit`.
+For operations declaring `limit`, the client requests one extra row to detect
+truncation. The summary says `N of N+ shown; --all for everything` when this
+probe finds more rows. Lists without server limits trim locally and report
+`N of M shown; --all for everything`; otherwise the summary is `M <noun>`.
+Non-array responses pass through unchanged.
+
+`--all` follows declared `skip` or `offset` paging until a short page. Page size
+uses the declared maximum, otherwise the declared default, otherwise 500. If a
+limited operation has no paging parameter, `--all` requests that size and warns
+on stderr when the response fills it, since results may be incomplete. Ordinary
+list requests also honor a declared maximum and page when necessary to satisfy
+`--limit`. Operations without a limit parameter receive none.
+
+TTY tables use the named command's columns, or up to five scalar fields in
+alphabetical order for generic results. All keys, headers, and cells escape
+control characters. Padding uses a small local display-width function covering
+common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
+complex joined emoji sequences and terminal-specific widths may vary.
+
+Invoices and bills expose `--status`; the pinned server has no `since` parameter.
+`reports list` discovers direct JSON report operations from the catalog, since
+there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
+Date flags use the chosen operation's declared parameters: `--from` targets
+`start_date`; `--to` targets `end_date`, `as_of_date`, or `as_of`, in that order.
+A flag with no declared target exits 2 and names the declared query parameters;
+for year-based reports use `--param year=2026`. Named report calls reject
+undeclared `--param` names. The generic `api`/`ops call` layer remains permissive.
+Search sends the query as `q`, returns its grouped response unchanged, and has
+no `--limit` or `--all` flags.

@@ -77,7 +77,7 @@ func TestEveryExitCodeThroughRoot(t *testing.T) {
 
 func TestFlagsAndUsage(t *testing.T) {
 	isolate(t)
-	for _, args := range [][]string{nil, {"nosuch"}, {"version", "extra"}, {"version", "--bad"}, {"version", "--timeout", "0"}, {"version", "--timeout", "3601"}, {"version", "--timeout", "invalid"}, {"version", "--jq", ".data"}} {
+	for _, args := range [][]string{nil, {"nosuch"}, {"version", "extra"}, {"version", "--bad"}, {"version", "--timeout", "0"}, {"version", "--timeout", "3601"}, {"version", "--timeout", "invalid"}, {"version", "--jq", "["}} {
 		var out bytes.Buffer
 		if got := Run(args, &out, &out, Build{}); got != 2 {
 			t.Fatalf("%v: exit %d", args, got)
