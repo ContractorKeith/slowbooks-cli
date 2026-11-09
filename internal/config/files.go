@@ -38,5 +38,5 @@ func atomicWrite(path string, b []byte) error {
 		return e
 	}
 	defer os.Remove(name)
-	return os.Rename(name, path)
+	return renameFile(name, path)
 }

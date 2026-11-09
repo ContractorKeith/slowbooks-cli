@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
@@ -44,7 +45,7 @@ func TokenCheck(path string) (string, error) {
 	}
 	detail := fmt.Sprintf("%s (%04o)", path, info.Mode().Perm())
 	if runtime.GOOS == "windows" {
-		detail += "; mode check skipped"
+		detail = path + "; ACL inherited from " + filepath.Dir(path) + "; mode check skipped"
 	}
 	return detail, nil
 }

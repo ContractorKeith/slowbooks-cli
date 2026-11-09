@@ -1,7 +1,9 @@
 package config
 
 import (
+	"bytes"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -10,9 +12,9 @@ import (
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 )
 
-// MaxTokenLength excludes the optional final LF or CRLF.
+// MaxTokenLength excludes an optional UTF-8 BOM and final LF or CRLF.
 const MaxTokenLength = 4096
-const MaxTokenFileSize = MaxTokenLength + 2
+const MaxTokenFileSize = MaxTokenLength + 2 + 3
 
 type Flags struct {
 	Profile, Company, URL                      string
@@ -102,7 +104,15 @@ func Resolve(f Flags) (Connection, error) {
 	if f.CompanySet {
 		c.Company = f.Company
 	}
+	if p.TokenFile != "" && !filepath.IsAbs(p.TokenFile) {
+		d, err := Dir()
+		if err != nil {
+			return c, err
+		}
+		p.TokenFile = filepath.Join(d, p.TokenFile)
+	}
 	c.TokenFile = first(os.Getenv("SLOWBOOKS_TOKEN_FILE"), p.TokenFile)
+	c.Profile = strings.ToLower(c.Profile)
 	if c.URL == "" {
 		return c, missingURL()
 	}
@@ -114,7 +124,10 @@ func Resolve(f Flags) (Connection, error) {
 
 // ValidateToken accepts a single token with an optional final line ending.
 func ValidateToken(b []byte) (string, error) {
-	s := string(b)
+	if bytes.HasPrefix(b, []byte{255, 254}) || bytes.HasPrefix(b, []byte{254, 255}) {
+		return "", &output.Error{Code: "auth", Message: "UTF-16 is not supported; save the token as UTF-8 or ASCII", Hint: "save the token as UTF-8 or ASCII"}
+	}
+	s := string(bytes.TrimPrefix(b, []byte{0xef, 0xbb, 0xbf}))
 	if strings.HasSuffix(s, "\n") {
 		s = strings.TrimSuffix(s, "\n")
 		s = strings.TrimSuffix(s, "\r")
