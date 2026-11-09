@@ -6,30 +6,42 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 	"golang.org/x/sys/windows"
 )
 
 // A reader or scanner may briefly hold the destination without share-delete.
 func renameFile(old, target string) error {
-	// Root.Rename uses Windows POSIX replacement semantics, so share-delete
-	// readers keep their old handles while new readers see the replacement.
-	root, err := os.OpenRoot(filepath.Dir(target))
-	if err != nil {
-		return err
-	}
-	defer root.Close()
-	source, err := filepath.Rel(filepath.Dir(target), old)
-	if err != nil {
-		return err
-	}
-	for attempt := 0; attempt < 8; attempt++ {
-		err = root.Rename(source, filepath.Base(target))
+	deadline := time.Now().Add(2 * time.Second)
+	delay := 10 * time.Millisecond
+	for {
+		err := replaceFile(old, target)
 		if !errors.Is(err, windows.ERROR_ACCESS_DENIED) && !errors.Is(err, windows.ERROR_SHARING_VIOLATION) {
 			return err
 		}
-		if attempt < 7 {
-			time.Sleep(time.Duration(attempt+1) * 10 * time.Millisecond)
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return &output.Error{Code: "auth", Message: "in use by another program: " + target, Hint: "close programs using " + target + " and retry"}
 		}
+		time.Sleep(min(delay, remaining))
+		delay = min(delay*2, 100*time.Millisecond)
+	}
+}
+
+// Root.Rename preserves share-delete readers on NTFS. Unsupported filesystems
+// use Go's MoveFileEx replacement instead, without unlinking the destination.
+func replaceFile(old, target string) error {
+	root, err := os.OpenRoot(filepath.Dir(target))
+	if err == nil {
+		defer root.Close()
+		var source string
+		source, err = filepath.Rel(filepath.Dir(target), old)
+		if err == nil {
+			err = root.Rename(source, filepath.Base(target))
+		}
+	}
+	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) || errors.Is(err, windows.ERROR_NOT_SUPPORTED) {
+		return os.Rename(old, target)
 	}
 	return err
 }

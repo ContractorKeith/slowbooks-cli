@@ -33,6 +33,16 @@ func LoginProfile(f Flags) (string, Profile, error) {
 	}
 	p := s.Profiles[name]
 	p.RecoveryNotice = notice
+	p.recovering = notice != ""
+	if p.TokenFile != "" {
+		dir, err := Dir()
+		if err != nil {
+			return "", Profile{}, err
+		}
+		if err = refuseSharedLogin(s, name, dir, tokenPath(dir, p.TokenFile)); err != nil {
+			return "", Profile{}, err
+		}
+	}
 	p.URL = first(os.Getenv("SLOWBOOKS_URL"), p.URL)
 	if f.URLSet {
 		p.URL = f.URL

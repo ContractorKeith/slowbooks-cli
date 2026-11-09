@@ -42,6 +42,11 @@ func lockStore() (func(), error) {
 	}
 }
 func fileError(action, path string, cause error) error {
+	// Retain typed file diagnostics, including a busy replacement's actionable hint.
+	var typed *output.Error
+	if errors.As(cause, &typed) {
+		return typed
+	}
 	// Retain the OS reason in a typed error without leaking credential content.
 	var pathErr *os.PathError
 	if errors.As(cause, &pathErr) {

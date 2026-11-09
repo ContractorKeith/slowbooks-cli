@@ -37,17 +37,25 @@ func SaveLogin(name string, p Profile, token string) error {
 	if e != nil {
 		return e
 	}
+	if old, ok := s.Profiles[name]; ok && old.TokenFile != "" {
+		if e = refuseSharedLogin(s, name, d, tokenPath(d, old.TokenFile)); e != nil {
+			return e
+		}
+	}
 	p.TokenFile = filepath.Join(d, "tokens", strings.ToLower(name)+".token")
 	old, selected := s.Profiles[name]
 	// Keep legacy mixed-case managed paths working without migrating credentials.
 	if selected && managedToken(d, name, old.TokenFile) {
 		p.TokenFile = tokenPath(d, old.TokenFile)
 	}
+	if e = refuseSharedLogin(s, name, d, p.TokenFile); e != nil {
+		return e
+	}
 	if _, err := os.Lstat(p.TokenFile); !os.IsNotExist(err) {
 		if err != nil {
 			return fileError("inspect token", p.TokenFile, err)
 		}
-		if !selected || !managedToken(d, name, old.TokenFile) || tokenPath(d, old.TokenFile) != p.TokenFile {
+		if !p.recovering && (!selected || !managedToken(d, name, old.TokenFile) || tokenPath(d, old.TokenFile) != p.TokenFile) {
 			return &output.Error{Code: "usage", Message: "token file already exists: " + p.TokenFile, Hint: "move the existing file before login: " + p.TokenFile}
 		}
 	}

@@ -13,6 +13,7 @@ import (
 )
 
 type Profile struct {
+	recovering     bool   // One login attempt may reclaim its managed token; never persisted.
 	RecoveryNotice string `json:"-"`
 	URL            string `json:"url"`
 	Company        string `json:"company"`

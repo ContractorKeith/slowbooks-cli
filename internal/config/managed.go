@@ -53,3 +53,11 @@ func sharedToken(s Store, name, dir, path string) bool {
 	}
 	return false
 }
+
+func refuseSharedLogin(s Store, name, dir, path string) error {
+	if !sharedToken(s, name, dir, path) {
+		return nil
+	}
+	return &output.Error{Code: "usage", Message: "token file is shared with another profile: " + path,
+		Hint: "log out a colliding profile (sbp auth logout --profile " + name + "), then re-login the remaining profile"}
+}

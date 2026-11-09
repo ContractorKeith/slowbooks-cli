@@ -71,8 +71,9 @@ func TestWindowsTokenDoctorACL(t *testing.T) {
 	}
 	s, _ := Load()
 	path := s.Profiles["a"].TokenFile
+	setTokenDACL(t, path, "")
 	detail, e := TokenCheck(path)
-	if e != nil || !strings.Contains(detail, "ACL inherited from "+filepath.Dir(path)+"; mode check skipped") || strings.Contains(detail, "0666") {
+	if e != nil || !strings.Contains(detail, "DACL checked") || strings.Contains(detail, "0666") {
 		t.Fatal(detail, e)
 	}
 }

@@ -26,7 +26,19 @@ func TestReloginLegacyCaseCollisions(t *testing.T) {
 	if e := Save(Store{Default: "Acme", Profiles: profiles}); e != nil {
 		t.Fatal(e)
 	}
+	a, _ := os.Stat(profiles["Acme"].TokenFile)
+	b, _ := os.Stat(profiles["acme"].TokenFile)
+	aliased := os.SameFile(a, b)
 	for _, name := range []string{"Acme", "acme"} {
+		if aliased {
+			if _, _, e := LoginProfile(Flags{Profile: name, ProfileSet: true}); output.ExitCode(e) != 2 {
+				t.Fatal("accepted case-insensitive alias", e)
+			}
+			if e := SaveLogin(name, Profile{}, "sbp_test"); output.ExitCode(e) != 2 {
+				t.Fatal("overwrote case-insensitive alias", e)
+			}
+			continue
+		}
 		if _, _, e := LoginProfile(Flags{Profile: name, ProfileSet: true}); e != nil {
 			t.Fatal(name, e)
 		}
