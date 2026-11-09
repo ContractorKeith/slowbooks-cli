@@ -110,3 +110,8 @@ or `cmd /c "sbp ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
 `Idempotency-Key` on the server. Supplying `--key` cannot make these operations
 retry-safe: never re-run them after an uncertain result. Inspect the books and
 resolve what happened before making another payment change.
+
+When the catalog omits a status enum, `--status` warns and passes the value to
+the server. Generic calls such as `sbp api GET /api/invoices --param status=sent`
+bypass named status validation. A failed company lookup warns and permits login
+or writes; a successful lookup still refuses unknown companies.

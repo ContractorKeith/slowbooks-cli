@@ -35,9 +35,14 @@ func (w *Writer) filter(value any) error {
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
+	input, err := jqInput(value)
+	if err != nil {
+		return err
+	}
+	baseline := jqHeapUsage()
 	results := make(chan jqResult)
-	go streamJQ(ctx, w.jq, value, results)
-	return w.consumeJQ(ctx, cancel, results)
+	go streamJQ(ctx, w.jq, input, results)
+	return w.consumeJQ(ctx, cancel, results, baseline)
 }
 
 // SetContext bounds jq evaluation by the command's cancellation and timeout.

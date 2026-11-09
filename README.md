@@ -76,8 +76,10 @@ it requires explicit server/token environment variables and creates then voids
 one invoice. It refuses to run in CI.
 
 Invoice and bill lists accept `--open` for `open_only=true`, or `--status` with
-one declared status: invoices `draft|sent|partial|paid|void`; bills
-`draft|unpaid|partial|paid|void`. Invalid statuses exit 2 before the list request.
+one status: invoices `draft|sent|partial|paid|void`; bills
+`draft|unpaid|partial|paid|void`. Values outside a declared enum exit 2 before the list request; absent enums
+produce a warning and pass the value through. Generic `--param status=value`
+bypasses named status validation.
 Payment keys use 1–128 letters, digits, or `._:-`. Selected companies are checked
 at login and before writes; an unknown company exits 2 and lists valid choices.
 `sbp version` reports release versions without the leading `v`.

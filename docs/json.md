@@ -16,8 +16,9 @@ retain their full envelope, bypassing jq; a streaming evaluation error may follo
 already emitted results. Evaluation uses the command context and the configured
 `--timeout` (including the timeout environment variable). Output is capped at
 100,000 results and 64 MiB including newlines. During evaluation, a watchdog
-samples process heap objects every 50 ms and cancels when usage exceeds 512 MiB
-(exit 2, `--jq used more than 512 MiB`). This is a sampled process-wide budget,
+samples process heap objects every 50 ms and cancels when growth from the
+pre-evaluation baseline exceeds 512 MiB
+(exit 2, `--jq used more than 512 MiB`). The already-loaded response is excluded from this sampled growth budget;
 so allocation bursts may briefly exceed it. If evaluation has not stopped within
 250 ms of cancellation, the CLI emits the error envelope and exits 2.
 Cancellation, timeout, and cap failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
@@ -110,6 +111,7 @@ a depth cap of 8, a 600-node budget, and a 16,000-character budget; alias chains
 have a 60-reference cap and cycle detection. Cuts are marked. Calls return the
 server JSON (or null for an empty response). Successful writes
 with an explicitly declared non-JSON response retain raw text as a JSON string.
+If a write omits or leaves Content-Type blank, valid JSON is decoded first.
 If an operation declares JSON and instead returns an undeclared non-JSON body,
 the command exits 1 with `retryable:false`, message `the server answered with a
 page, not JSON; the write may have happened`, and a check-the-books hint. The
@@ -164,9 +166,9 @@ complex joined emoji sequences and terminal-specific widths may vary.
 Invoices and bills expose `--open`, mapping to declared `open_only=true`, and
 `--status`, validated locally against catalog enums. The pinned invoice response
 declares `draft|sent|partial|paid|void`; its query omits that enum. Bill schemas
-omit it entirely, so the verified 2.31.10 `draft|unpaid|partial|paid|void` values
-are the fallback when no enum is declared. Invalid statuses exit 2 before the
-list request. The pinned server has no `since` parameter.
+omit it entirely, so values pass through with a stderr note when no enum is
+declared. A value outside a declared enum exits 2 before the list request.
+Generic `api`/`ops call --param status=value` bypass named status validation. The pinned server has no `since` parameter.
 `reports list` discovers direct JSON report operations from the catalog, since
 there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
 Date flags use the chosen operation's declared parameters: `--from` targets
@@ -255,12 +257,15 @@ release dry run injects `v0.0.0`. Report paths can be regenerated with
 `go test ./internal/commands -run '^TestReportsEmbedded$' -update`.
 
 Release `version` output omits the leading `v`, matching the plugin manifest.
-Success hints omit unknown record placeholders. Environment-only catalog cache
+Named PDF and write hints use the actual record ID. Unknown record placeholders
+are omitted. Environment-only catalog cache
 directories include a short hash of the server URL and company. If an environment
 URL differs from the selected profile and no environment token file is supplied,
 commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before sending its token.
 Company and key header values are validated locally (exit 2), including dry-run.
 Login and online writes validate non-empty company selections against
-`/api/companies`; doctor always checks it and fails its companies row for unknown
-selections. One company lookup is cached in memory per invocation. Offline
+`/api/companies`. A successful lookup refuses unknown selections; failed lookups
+warn `could not verify company X: <reason>` and allow login/writes to proceed.
+Doctor always checks the list and fails its companies row for lookup errors or
+unknown selections. One company lookup is cached in memory per invocation. Offline
 dry-run makes no HTTP requests and cannot verify company membership.

@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"os"
 	"os/exec"
@@ -38,7 +39,7 @@ func TestJQMemoryWatchdogExitsForStuckEvaluation(t *testing.T) {
 		w.jqMemoryLimit = 1 << 20
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		_ = w.consumeJQ(ctx, cancel, nil)
+		_ = w.consumeJQ(ctx, cancel, nil, 0)
 		t.Fatal("stuck evaluator returned without exiting")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -53,5 +54,58 @@ func TestJQMemoryWatchdogExitsForStuckEvaluation(t *testing.T) {
 	want := `{"ok":false,"error":{"code":"usage","message":"--jq used more than 1 MiB","retryable":false,"hint":"","detail":null}}` + "\n"
 	if string(raw) != want {
 		t.Fatalf("got %q", raw)
+	}
+}
+
+func TestJQExistingFortyMiBResponseDoesNotSpendEvaluationBudget(t *testing.T) {
+	var out bytes.Buffer
+	w := New(&out, &out)
+	w.jqMemoryLimit = 8 << 20
+	if err := w.SetJQ(".data[].id", true); err != nil {
+		t.Fatal(err)
+	}
+	rows := []any{map[string]any{"id": json.Number("9007199254740993"), "padding": strings.Repeat("x", 40<<20)}}
+	if err := w.Success(rows, "1 row", nil); err != nil {
+		t.Fatal(err)
+	}
+	if out.String() != "9007199254740993\n" {
+		t.Fatal(out.String())
+	}
+}
+
+func TestJQTypedMetadataPreservesJSONShapeAndNumbers(t *testing.T) {
+	var out bytes.Buffer
+	w := New(&out, &out)
+	if err := w.SetJQ(`.data | {id,body,omit:has("omit"),hidden:has("hidden")}`, true); err != nil {
+		t.Fatal(err)
+	}
+	data := struct {
+		ID     json.Number     `json:"id"`
+		Body   json.RawMessage `json:"body"`
+		Omit   string          `json:"omit,omitempty"`
+		Hidden string          `json:"-"`
+	}{ID: json.Number("9007199254740993"), Body: json.RawMessage(`{"id":9007199254740995}`), Hidden: "private"}
+	if err := w.Success(data, "", nil); err != nil {
+		t.Fatal(err)
+	}
+	want := `{"body":{"id":9007199254740995},"hidden":false,"id":9007199254740993,"omit":false}` + "\n"
+	if out.String() != want {
+		t.Fatal(out.String())
+	}
+}
+
+func TestJQGrowthBudgetIgnoresExistingHeapDuringEvaluation(t *testing.T) {
+	var out bytes.Buffer
+	w := New(&out, &out)
+	w.jqMemoryLimit = 32 << 20
+	w.SetContext(context.Background(), 200*time.Millisecond)
+	if err := w.SetJQ("reduce range(1e9) as $i (0; .)", true); err != nil {
+		t.Fatal(err)
+	}
+	data := strings.Repeat("x", 40<<20)
+	defer runtime.KeepAlive(data)
+	err := w.Success(data, "", nil)
+	if ExitCode(err) != 2 || !strings.Contains(err.Error(), "time limit") {
+		t.Fatal(err)
 	}
 }

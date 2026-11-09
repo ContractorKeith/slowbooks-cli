@@ -12,9 +12,10 @@ func supportsKeyReplay(path string) bool {
 	if err != nil {
 		return false
 	}
-	if u.Path == "/api/batch-payments" {
+	path = strings.ToLower(u.Path)
+	if path == "/api/batch-payments" {
 		return false
 	}
-	parts := strings.Split(u.Path, "/")
+	parts := strings.Split(path, "/")
 	return !(len(parts) == 5 && parts[0] == "" && parts[1] == "api" && (parts[2] == "payments" || parts[2] == "bill-payments") && parts[4] == "replace")
 }

@@ -12,7 +12,7 @@ const jqHeapLimit = 512 << 20
 
 // consumeJQ is the only writer. Cancellation gives the evaluator a short grace
 // period; a stuck evaluator cannot retain an unbounded heap in a live process.
-func (w *Writer) consumeJQ(ctx context.Context, cancel context.CancelFunc, results <-chan jqResult) error {
+func (w *Writer) consumeJQ(ctx context.Context, cancel context.CancelFunc, results <-chan jqResult, baseline uint64) error {
 	limit := w.jqMemoryLimit
 	if limit == 0 {
 		limit = jqHeapLimit
@@ -58,7 +58,8 @@ func (w *Writer) consumeJQ(ctx context.Context, cancel context.CancelFunc, resul
 				continue
 			}
 			metrics.Read(samples)
-			if samples[0].Value.Uint64() > limit {
+			heap := samples[0].Value.Uint64()
+			if heap > baseline && heap-baseline > limit {
 				memoryErr = &Error{Code: "usage", Message: fmt.Sprintf("--jq used more than %d MiB", limit>>20)}
 				cancel()
 				ctxDone = nil
@@ -74,4 +75,12 @@ func (w *Writer) consumeJQ(ctx context.Context, cancel context.CancelFunc, resul
 			os.Exit(2)
 		}
 	}
+}
+
+// The input already exists when this baseline is sampled; only growth during
+// evaluation counts against the jq budget.
+func jqHeapUsage() uint64 {
+	samples := []metrics.Sample{{Name: "/memory/classes/heap/objects:bytes"}}
+	metrics.Read(samples)
+	return samples[0].Value.Uint64()
 }

@@ -18,9 +18,6 @@ import (
 var safeComponent = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
 
 func cacheDir(profile string) (string, error) {
-	if profile == "" {
-		profile = "env"
-	}
 	if !safeComponent.MatchString(profile) {
 		return "", fmt.Errorf("invalid catalog profile")
 	}

@@ -111,7 +111,7 @@ func IsKeyed(method, path string) bool {
 	if !strings.EqualFold(method, "POST") {
 		return false
 	}
-	parts := strings.Split(path, "/")
+	parts := strings.Split(strings.ToLower(path), "/")
 	if len(parts) != 3 && len(parts) != 5 {
 		return false
 	}

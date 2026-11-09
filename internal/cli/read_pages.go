@@ -108,7 +108,7 @@ func decodeResult(data []byte, contentType, method string, declared []string) (a
 		return nil, nil
 	}
 	media, _, _ := mime.ParseMediaType(contentType)
-	if method != "GET" && media != "application/json" && !strings.HasSuffix(media, "+json") {
+	if method != "GET" && media != "application/json" && !strings.HasSuffix(media, "+json") && !(strings.TrimSpace(contentType) == "" && json.Valid(data)) {
 		if requiresJSON(declared, media) {
 			return nil, uncertainJSONWrite()
 		}

@@ -23,13 +23,17 @@ func TestSkepticStatusAndOpen(t *testing.T) {
 	for _, kind := range []string{"invoices", "bills"} {
 		before := len(fake.Requests())
 		code, out, _ := invoke(t, "", kind, "list", "--status", "open")
-		if code != 2 || !strings.Contains(out, "draft") {
-			t.Errorf("status: %d %s", code, out)
-		}
-		for _, r := range fake.Requests()[before:] {
-			if strings.HasPrefix(r.URI, "/api/"+kind) {
-				t.Error(r)
+		if kind == "invoices" {
+			if code != 2 || !strings.Contains(out, "draft") {
+				t.Errorf("status: %d %s", code, out)
 			}
+			for _, r := range fake.Requests()[before:] {
+				if strings.HasPrefix(r.URI, "/api/"+kind) {
+					t.Error(r)
+				}
+			}
+		} else if code != 0 {
+			t.Errorf("undeclared bill status: %d %s", code, out)
 		}
 		code, out, _ = invoke(t, "", kind, "list", "--open")
 		reqs := fake.Requests()

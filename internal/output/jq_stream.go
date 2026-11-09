@@ -3,7 +3,6 @@ package output
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/itchyny/gojq"
@@ -26,19 +25,7 @@ func streamJQ(ctx context.Context, code *gojq.Code, value any, results chan<- jq
 			return false
 		}
 	}
-	raw, err := json.Marshal(value)
-	if err != nil {
-		send(jqResult{err: err})
-		return
-	}
-	var input any
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	if err = decoder.Decode(&input); err != nil {
-		send(jqResult{err: err})
-		return
-	}
-	iter := code.RunWithContext(ctx, input)
+	iter := code.RunWithContext(ctx, value)
 	remaining := 64 << 20
 	for count := 0; ctx.Err() == nil; count++ {
 		value, ok := iter.Next()

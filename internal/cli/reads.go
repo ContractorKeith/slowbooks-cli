@@ -27,7 +27,7 @@ func (s *session) addReads(root *cobra.Command) {
 			}
 		}
 		if row.Download {
-			parent.AddCommand(s.downloadCommand(&row))
+			parent.AddCommand(s.readDownloadCommand(row))
 		} else {
 			parent.AddCommand(s.readCommand(row, parts[len(parts)-1]))
 		}
@@ -84,7 +84,7 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 					value = fmt.Sprint(open)
 				}
 				if flag.Name == "status" {
-					if err := validateStatus(cat, op, value); err != nil {
+					if err := s.validateStatus(cat, op, value); err != nil {
 						return err
 					}
 				}

@@ -21,7 +21,10 @@ func (s *session) checkCompany(cmd *cobra.Command, cl *client.Client, always boo
 		s.companiesErr = getJSON(cmd, cl.WithoutCompany(), "/api/companies", &s.companies)
 	}
 	if s.companiesErr != nil {
-		return s.companiesErr
+		if always {
+			return s.companiesErr
+		}
+		return s.warn(fmt.Sprintf("could not verify company %s: %s", selected, s.companiesErr.Error()))
 	}
 	if selected == "" {
 		return nil

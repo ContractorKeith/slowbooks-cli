@@ -65,3 +65,18 @@ func TestSkepticDeclaredEnumPrecedence(t *testing.T) {
 		t.Fatal(values)
 	}
 }
+
+func TestKeyedRoutesIgnorePathCase(t *testing.T) {
+	isolate(t)
+	for _, path := range []string{"/API/PAYMENTS", "/api/BILL-PAYMENTS", "/api/Payments/5/Discount", "/api/BILL-PAYMENTS/{ID}/DISCOUNT"} {
+		if !IsKeyed("POST", path) {
+			t.Error(path)
+		}
+	}
+}
+func TestCacheDirectoryRequiresExplicitIdentity(t *testing.T) {
+	isolate(t)
+	if _, err := cacheDir(""); err == nil {
+		t.Fatal("empty cache identity accepted")
+	}
+}
