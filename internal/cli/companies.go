@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
+	"github.com/ContractorKeith/slowbooks-cli/internal/config"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 	"github.com/spf13/cobra"
 )
@@ -31,15 +32,27 @@ func (s *session) checkCompany(cmd *cobra.Command, cl *client.Client, always boo
 	}
 	var names []string
 	for _, row := range s.companies {
-		for _, key := range []string{"file", "database_name", "name", "id"} {
-			value, ok := row[key].(string)
-			if ok && value != "" {
-				if value == selected {
-					return nil
-				}
-				names = append(names, value)
-			}
+		file, ok := row["file"].(string)
+		if !ok || file == "" {
+			continue
 		}
+		if file == selected {
+			return nil
+		}
+		names = append(names, file)
 	}
-	return &output.Error{Code: "usage", Message: fmt.Sprintf("unknown company %q", selected), Hint: "available companies: " + strings.Join(names, ", ")}
+	if len(names) == 0 {
+		return &output.Error{Code: "usage", Message: "this server does not support company selection", Hint: s.companyRecoveryHint()}
+	}
+	return &output.Error{Code: "usage", Message: fmt.Sprintf("unknown company %q", selected), Hint: "available companies: " + strings.Join(names, ", ") + "; " + s.companyRecoveryHint()}
+}
+
+// Explain both a one-command override and permanent recovery from inherited
+// environment/profile selections. Login already supports clearing with --company=.
+func (s *session) companyRecoveryHint() string {
+	hint := "use --company= for this invocation; unset SLOWBOOKS_COMPANY to clear an environment selection"
+	if conn, err := config.Resolve(s.flags); err == nil && conn.Profile != "" {
+		hint += "; clear the saved profile company with sbp auth login --profile " + conn.Profile + " --company="
+	}
+	return hint
 }

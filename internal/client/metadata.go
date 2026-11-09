@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"strings"
+	"unicode"
 )
 
 // CacheIdentity scopes environment-only discovery to this server and company.
@@ -17,6 +18,9 @@ func (c *Client) CacheIdentity() string {
 func (c *Client) Company() string { return c.options.Company }
 
 func validateHeaders(o Options) error {
+	if strings.TrimSpace(o.Company) != o.Company || strings.ContainsFunc(o.Company, unicode.IsControl) {
+		return usage("invalid company header value: no controls or leading/trailing whitespace")
+	}
 	for name, value := range map[string]string{"company": o.Company, "Authorization": o.Token, "User-Agent": o.Version} {
 		for i := 0; i < len(value); i++ {
 			if value[i] < 32 && value[i] != '\t' || value[i] == 127 {

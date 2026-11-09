@@ -23,17 +23,13 @@ func TestSkepticStatusAndOpen(t *testing.T) {
 	for _, kind := range []string{"invoices", "bills"} {
 		before := len(fake.Requests())
 		code, out, _ := invoke(t, "", kind, "list", "--status", "open")
-		if kind == "invoices" {
-			if code != 2 || !strings.Contains(out, "draft") {
-				t.Errorf("status: %d %s", code, out)
+		if code != 2 || !strings.Contains(out, "draft") {
+			t.Errorf("status: %d %s", code, out)
+		}
+		for _, r := range fake.Requests()[before:] {
+			if strings.HasPrefix(r.URI, "/api/"+kind) {
+				t.Error(r)
 			}
-			for _, r := range fake.Requests()[before:] {
-				if strings.HasPrefix(r.URI, "/api/"+kind) {
-					t.Error(r)
-				}
-			}
-		} else if code != 0 {
-			t.Errorf("undeclared bill status: %d %s", code, out)
 		}
 		code, out, _ = invoke(t, "", kind, "list", "--open")
 		reqs := fake.Requests()
@@ -139,7 +135,7 @@ func TestSkepticDryRunHeadersAndKeys(t *testing.T) {
 	fake, server := setupAuth(t)
 	invoke(t, "sbp_bookkeeper", "auth", "login", "--url", server)
 	invoke(t, "", "ops", "find", "customer")
-	for _, flags := range [][]string{{"--company", "a\nb"}, {"--key", "a b"}, {"--key", strings.Repeat("a", 129)}} {
+	for _, flags := range [][]string{{"--company", "a\nb"}, {"--company", "a\tb"}, {"--company", " acme"}, {"--company", "acme "}, {"--key", "a b"}, {"--key", strings.Repeat("a", 129)}} {
 		before := len(fake.Requests())
 		code, out, _ := invoke(t, "", append([]string{"api", "POST", "/api/customers", "--dry-run"}, flags...)...)
 		if code != 2 || len(fake.Requests()) != before {

@@ -41,7 +41,7 @@ func (w *Writer) filter(value any) error {
 	}
 	baseline := jqHeapUsage()
 	results := make(chan jqResult)
-	go streamJQ(ctx, w.jq, input, results)
+	go streamJQ(ctx, w.jq, input, results, w.TTY)
 	return w.consumeJQ(ctx, cancel, results, baseline)
 }
 

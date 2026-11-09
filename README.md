@@ -14,8 +14,8 @@ On macOS, a browser download may be quarantined. After extracting, run
 with `gh release download` or `curl` are unaffected.
 
 On Windows PowerShell 5.1, save downloads with `-o file`, or preserve raw stdout
-with `cmd /c "sbp ... -o - > file"`; PowerShell's `>` re-encodes bytes. Prefer
-`--data @file` over inline JSON, since PowerShell 5.1 changes inline quoting.
+with `cmd /c "sbp.exe ... -o - > file"`; PowerShell's `>` re-encodes bytes. Prefer
+`--data "@file"` over inline JSON, since PowerShell 5.1 changes inline quoting.
 Save JSON files as UTF-8 (a UTF-8 BOM is accepted; UTF-16 is unsupported).
 
 While this repository is private, release downloads and `go install ...@latest`
@@ -42,7 +42,10 @@ sbp doctor
 
 An existing Switchboard connection also works: set `SLOWBOOKS_URL` and
 `SLOWBOOKS_TOKEN_FILE` (0600 on Linux/macOS). No profile required.
-Use `--company` or `SLOWBOOKS_COMPANY` to select a company.
+Use `--company` or `SLOWBOOKS_COMPANY` with the exact served-company `file` from
+`/api/companies`. Display names and database names cannot select books. Servers
+without served-company files (including PostgreSQL) require the default selection;
+use `--company=` to clear a stored or environment selection.
 
 ```bash
 sbp invoices list --open --json --jq '.data[].id'
@@ -78,8 +81,20 @@ one invoice. It refuses to run in CI.
 Invoice and bill lists accept `--open` for `open_only=true`, or `--status` with
 one status: invoices `draft|sent|partial|paid|void`; bills
 `draft|unpaid|partial|paid|void`. Values outside a declared enum exit 2 before the list request; absent enums
-produce a warning and pass the value through. Generic `--param status=value`
+produce a warning and pass the value through, except verified 2.31.10 bills use
+the known status list above. Generic `--param status=value`
 bypasses named status validation.
 Payment keys use 1–128 letters, digits, or `._:-`. Selected companies are checked
-at login and before writes; an unknown company exits 2 and lists valid choices.
+at login and before online reads/writes; unknown files are refused, while a failed
+lookup warns and proceeds. A supplied key is retry-safe only on keyed operations;
+unkeyed writes warn that the server ignores it. After a successful write, a jq
+runtime failure prints the unfiltered success and warns, with exit 0.
 `sbp version` reports release versions without the leading `v`.
+
+In PowerShell, type `sbp.exe` for every command: `sbp` is a built-in alias for
+`Set-PSBreakpoint`. Quote file arguments as `"@file"` to avoid PowerShell
+splatting. For example:
+
+```powershell
+sbp.exe invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
+```

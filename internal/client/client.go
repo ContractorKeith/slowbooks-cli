@@ -26,6 +26,7 @@ type Client struct {
 	http             *http.Client
 	options          Options
 	maxResponseBytes int64
+	keyedOperation   bool
 }
 
 // New enforces transport policy before credentials can be sent.
@@ -98,7 +99,7 @@ func (c *Client) DoResponse(ctx context.Context, method, path string, body []byt
 			return data, nil
 		}
 		e := output.AsError(err)
-		if !read && key != "" && supportsKeyReplay(path) && (e.Code == "network" || e.Code == "server" && WriteReachedWire(err)) && e.Message != "response too large" {
+		if !read && key != "" && c.keyedOperation && (e.Code == "network" || e.Code == "server" && WriteReachedWire(err)) && e.Message != "response too large" {
 			e.Retryable = true
 			e.Hint = "rerun with the same --key"
 		}

@@ -54,7 +54,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error { return &output.Error{Code: "usage", Message: err.Error()} })
 	flags := root.PersistentFlags()
 	flags.StringVar(&s.flags.Profile, "profile", "", "Saved profile")
-	flags.StringVar(&s.flags.Company, "company", "", "Company")
+	flags.StringVar(&s.flags.Company, "company", "", "Served-company file")
 	flags.BoolVar(&jsonOutput, "json", jsonOutput, "Print JSON")
 	flags.BoolVar(&quiet, "quiet", quiet, "Print data only")
 	flags.StringVar(&jq, "jq", "", "Filter JSON with jq")

@@ -171,7 +171,7 @@ sbp api <METHOD> <path> [--param k=v]... [--data @file|-|<json>] [--key K]
 sbp ops find <words...> | sbp ops describe <METHOD> <path> | sbp ops call <METHOD> <path> [...as api]
 sbp search <query>
 sbp customers|vendors|items|accounts list [--limit N|--all] | show <id>
-sbp invoices|bills list [--status S] [--since D] [--limit N|--all] | show <id>
+sbp invoices|bills list [--status S] [--open] [--limit N|--all] | show <id>
 sbp expenses|payments|bill-payments|journal list | show <id>
 sbp reports list | sbp reports run <name> [--from D] [--to D] [--param k=v]...
 sbp download <path> [-o file|-] [--param k=v]... [--force]

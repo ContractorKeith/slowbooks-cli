@@ -63,7 +63,7 @@ func TestSkepticWriteGatewayAdvice(t *testing.T) {
 			t.Fatal(err)
 		}
 		for _, key := range []string{"", "check-1"} {
-			_, err = c.Do(context.Background(), "POST", "/api/payments", nil, key)
+			_, err = c.ForOperation(true).Do(context.Background(), "POST", "/api/payments", nil, key)
 			e := output.AsError(err)
 			if output.ExitCode(err) != 8 || e.Hint == "" || e.Retryable != (key != "") || !WriteReachedWire(err) {
 				t.Errorf("status %d key %q: %+v", status, key, e)

@@ -36,7 +36,7 @@ func TestKeyedWritesNeverReplayOnDroppedReusedConnection(t *testing.T) {
 		if _, err := c.Do(context.Background(), "GET", "/api/prime", nil, ""); err != nil {
 			t.Fatal(err)
 		}
-		_, err = c.Do(context.Background(), "POST", "/api/payments", body, "check-1")
+		_, err = c.ForOperation(true).Do(context.Background(), "POST", "/api/payments", body, "check-1")
 		server.Close()
 		if output.ExitCode(err) != 8 || !output.AsError(err).Retryable {
 			t.Fatal(err)

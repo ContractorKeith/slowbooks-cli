@@ -65,7 +65,7 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 			if obj, ok := value.(map[string]any); ok && obj["id"] != nil {
 				next = fmt.Sprintf("sbp %s show %v", kind, obj["id"])
 			}
-			return s.w.Success(value, row.Name, []string{next})
+			return s.w.SuccessWrite(value, row.Name, []string{next})
 		}
 		err = s.runCall(cmd, []string{row.Method, path}, opts)
 		if err != nil && name != "record" {

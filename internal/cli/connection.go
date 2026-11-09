@@ -42,7 +42,17 @@ func (s *session) connect(cmd *cobra.Command) (config.Connection, *client.Client
 		return c, nil, e
 	}
 	cl, e := client.New(cmd.Context(), client.Options{URL: c.URL, Token: token, Company: c.Company, Timeout: c.Timeout, Version: s.build.Version})
-	return c, cl, e
+	if e != nil {
+		return c, nil, e
+	}
+	offline, _ := cmd.Flags().GetBool("dry-run")
+	// Doctor owns its diagnostic row; offline previews must never probe.
+	if !offline && cmd.Name() != "doctor" {
+		if e := s.checkCompany(cmd, cl, false); e != nil {
+			return c, nil, e
+		}
+	}
+	return c, cl, nil
 }
 func getJSON(cmd *cobra.Command, c *client.Client, path string, dest any) error {
 	b, e := c.Do(cmd.Context(), "GET", path, nil, "")

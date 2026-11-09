@@ -27,7 +27,7 @@ func (w *Writer) human(data any) error {
 			var ok bool
 			rows[i], ok = v.(map[string]any)
 			if !ok {
-				_, err = fmt.Fprintln(w.Out, string(raw))
+				_, err = fmt.Fprintln(w.Out, escapeControls(string(raw)))
 				return err
 			}
 		}
@@ -58,7 +58,7 @@ func (w *Writer) human(data any) error {
 		}
 		return nil
 	}
-	_, err = fmt.Fprintln(w.Out, string(raw))
+	_, err = fmt.Fprintln(w.Out, escapeControls(string(raw)))
 	return err
 }
 
@@ -110,7 +110,7 @@ func cell(v any) string {
 		return escapeControls(s)
 	}
 	raw, _ := json.Marshal(v)
-	return string(raw)
+	return escapeControls(string(raw))
 }
 func sortedKeys(fields map[string]any) []string {
 	keys := make([]string, 0, len(fields))
@@ -123,7 +123,7 @@ func sortedKeys(fields map[string]any) []string {
 func escapeControls(s string) string {
 	var b strings.Builder
 	for _, r := range s {
-		if unicode.IsControl(r) {
+		if needsTerminalEscape(r) {
 			switch r {
 			case '\n':
 				b.WriteString(`\n`)
@@ -132,11 +132,24 @@ func escapeControls(s string) string {
 			case '\t':
 				b.WriteString(`\t`)
 			default:
-				fmt.Fprintf(&b, `\u%04x`, r)
+				if r > 0xffff {
+					fmt.Fprintf(&b, `\U%08x`, r)
+				} else {
+					fmt.Fprintf(&b, `\u%04x`, r)
+				}
 			}
 		} else {
 			b.WriteRune(r)
 		}
 	}
 	return b.String()
+}
+
+// Preserve joining controls and soft hyphens used in names and emoji. Bidi and
+// all other format/control characters remain escaped in terminal output.
+func needsTerminalEscape(r rune) bool {
+	if r == '\u200c' || r == '\u200d' || r == '\u00ad' {
+		return false
+	}
+	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
 }

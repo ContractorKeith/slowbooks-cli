@@ -69,6 +69,13 @@ func (w *Writer) consumeJQ(ctx context.Context, cancel context.CancelFunc, resul
 		case <-ctxDone:
 			return jqBound("context cancelled or time limit exceeded")
 		case <-expired:
+			// A known successful write must remain visible even if its filter is stuck.
+			if w.writeResult != nil {
+				if err := w.recoverWriteFilter(memoryErr); err != nil {
+					os.Exit(1)
+				}
+				os.Exit(0)
+			}
 			// Only this goroutine writes output, including the final error envelope.
 			w.JSON = true
 			_ = w.Failure(memoryErr)
