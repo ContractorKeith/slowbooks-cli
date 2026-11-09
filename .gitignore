@@ -1,0 +1,6 @@
+/sbp
+/sbp-fake
+/sbp.exe
+/dist/
+/.tmp/
+.DS_Store
