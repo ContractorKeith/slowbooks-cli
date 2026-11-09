@@ -68,8 +68,13 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			}{build.Version, build.Commit, commands.VerifiedVersions()}, "sbp "+build.Version, nil)
 		},
 	})
-	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true))
+	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(false))
 	s.addReads(root)
+	for _, group := range root.Commands() {
+		if group.Name() == "invoices" {
+			group.AddCommand(s.downloadCommand(true))
+		}
+	}
 	return root
 }
 

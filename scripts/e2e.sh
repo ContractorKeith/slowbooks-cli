@@ -104,6 +104,16 @@ python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and 
 "$run/sbp" customers list --all --jq '.data[].id' > "$run/m3-jq.jsonl"
 python3 -c 'import json,sys; assert int(sys.argv[2]) in [json.loads(line) for line in open(sys.argv[1])]' "$run/m3-jq.jsonl" "$customer_id"
 echo 'e2e: M3 customer/invoice list/show, reports, search and jq passed'
+# M4 real invoice PDF and CSV streaming.
+"$run/sbp" ops call POST /api/customers --data '{"name":"M4 Download Customer"}' > "$run/m4-customer.json"
+customer_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m4-customer.json")"
+"$run/sbp" ops call POST /api/invoices --data "{\"customer_id\":$customer_id,\"date\":\"2026-11-09\",\"lines\":[{\"description\":\"Download test\",\"quantity\":1,\"rate\":10,\"amount\":10}]}" > "$run/m4-invoice.json"
+invoice_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["data"]["id"])' "$run/m4-invoice.json")"
+(cd "$run" && ./sbp invoices pdf "$invoice_id" --json > m4-pdf.json)
+python3 -c 'import json,sys,pathlib; p=pathlib.Path(sys.argv[1]); d=json.load(open(p/"m4-pdf.json"))["data"]; assert d["filename"].endswith(".pdf") and d["path"]==d["filename"]; assert (p/d["path"]).read_bytes().startswith(b"%PDF")' "$run"
+"$run/sbp" download /api/csv/export/customers -o - > "$run/m4-customers.csv"
+python3 -c 'import csv,sys; rows=list(csv.reader(open(sys.argv[1]))); assert len(rows)>1 and any("M4 Download Customer" in row for row in rows)' "$run/m4-customers.csv"
+echo 'e2e: M4 invoice PDF filename/signature and CSV stdout passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
 fi

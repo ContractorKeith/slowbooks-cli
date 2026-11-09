@@ -84,7 +84,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(data)
 		return
 	}
-	if s.readFixture(w, r) {
+	if s.readFixture(w, r) || serveDownload(w, r) {
 		return
 	}
 	var name string

@@ -83,4 +83,18 @@ printf 'sbp_bookkeeper\n' > "$scratch/input.token"
 chmod 644 "$scratch/input.token"
 SLOWBOOKS_TOKEN_FILE="$scratch/input.token" check_exit 3 auth status --json
 # All error codes are also exercised in process at the root seam by the gate.
+# M4 download envelopes, overwrite protection and raw bytes.
+echo '== M4 downloads'
+(cd "$scratch" && ./sbp invoices pdf 1 --json) | diff - testdata/golden/download.json
+status=0
+(cd "$scratch" && ./sbp invoices pdf 1 --json) > "$scratch/exists.json" || status=$?
+test "$status" -eq 2
+(cd "$scratch" && ./sbp invoices pdf 1 --force --json) > "$scratch/force.json"
+"$scratch/sbp" download /api/invoices/1/pdf -o - > "$scratch/raw.pdf"
+cmp testdata/fake/invoice.pdf "$scratch/raw.pdf"
+(cd "$scratch" && ./sbp download /api/invoices/traversal/pdf --json) > "$scratch/traversal.json"
+cmp testdata/fake/invoice.pdf "$scratch/evil.pdf"
+"$scratch/sbp" download /api/csv/export/customers -o - | cat > "$scratch/customers.csv"
+cmp testdata/fake/customers.csv "$scratch/customers.csv"
+check_exit 5 download /api/invoices/missing/pdf
 echo 'accept: ok'
