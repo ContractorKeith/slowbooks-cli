@@ -1,6 +1,9 @@
 package cli
 
 import (
+	"fmt"
+
+	"github.com/ContractorKeith/slowbooks-cli/internal/catalog"
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
 	"github.com/ContractorKeith/slowbooks-cli/internal/config"
 	"github.com/spf13/cobra"
@@ -85,7 +88,16 @@ func (s *session) doctor(cmd *cobra.Command, args []string) error {
 		}
 		add("companies", detail, companyErr)
 	}
-	add("catalog cache", "not built yet", nil)
+	if c == nil {
+		checks = append(checks, check{"catalog cache", false, "connection unavailable"})
+	} else {
+		cat, err := catalog.Load(cmd.Context(), c, conn.Profile, false)
+		detail := "unavailable"
+		if err == nil {
+			detail = fmt.Sprintf("version %s; %d operations; %s", cat.Version, len(cat.Operations), cat.Path)
+		}
+		add("catalog cache", detail, err)
+	}
 	var data any = struct {
 		Checks []check `json:"checks"`
 	}{checks}

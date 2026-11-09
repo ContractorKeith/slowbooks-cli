@@ -44,7 +44,7 @@ chmod 600 "$scratch/input.token"
 "$scratch/sbp" auth login --url "$SLOWBOOKS_URL" --company acme < "$scratch/input.token" > "$scratch/login.json"
 # Normalize only volatile URL and scratch paths; assertions remain in goldens.
 normalize() {
-  python3 -c 'import json,sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>"); print(json.dumps(json.loads(value),separators=(",",":")))' "$fake_url"
+  python3 -c 'import json,sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>").replace(os.path.normpath(os.environ["SLOWBOOKS_CACHE_DIR"]),"<cache>"); print(json.dumps(json.loads(value),separators=(",",":")))' "$fake_url"
 }
 unset SLOWBOOKS_URL
 echo '== goldens'
@@ -52,6 +52,9 @@ echo '== goldens'
 "$scratch/sbp" auth status --json | normalize | diff - testdata/golden/auth-status.json
 "$scratch/sbp" profile list --json | normalize | diff - testdata/golden/profile-list.json
 "$scratch/sbp" doctor --json | normalize | diff - testdata/golden/doctor.json
+"$scratch/sbp" ops find customer --json | diff - testdata/golden/ops-find.json
+"$scratch/sbp" ops describe POST /api/payments --json | diff - testdata/golden/ops-describe.json
+"$scratch/sbp" api POST /api/payments --key check-1 --data '{"amount":1}' --dry-run --json | normalize | diff - testdata/golden/dry-run.json
 echo '== live exit-code checks'
 check_exit() {
   expected="$1"; shift
@@ -60,6 +63,9 @@ check_exit() {
   test "$status" -eq "$expected"
 }
 check_exit 0 version --json
+check_exit 2 ops call POST /api/payments
+# The in-process fake recorder verifies zero hits, including catalog discovery.
+go test ./internal/cli -run '^TestGenericCallsAndSafety$' -count=1
 check_exit 2 nosuch
 check_exit 2 version --timeout 0
 check_exit 2 version --jq .data

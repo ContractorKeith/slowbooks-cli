@@ -60,8 +60,27 @@ func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client
 	}}, nil
 }
 
-// Do performs one attempt. M2 adds the read-only retry policy at this seam.
+// Do retries reads once; writes are always a single attempt.
 func (c *Client) Do(ctx context.Context, method, path string, body []byte, key string) ([]byte, error) {
+	method = strings.ToUpper(method)
+	read := method == http.MethodGet || method == http.MethodHead
+	for attempt := 0; ; attempt++ {
+		data, err := c.attempt(ctx, method, path, body, key)
+		if err == nil {
+			return data, nil
+		}
+		e := output.AsError(err)
+		if !read && key != "" && e.Code == "network" && e.Message != "response too large" {
+			e.Retryable = true
+			e.Hint = "rerun with the same --key"
+		}
+		if !read || attempt == 1 || !e.Retryable || ctx.Err() != nil {
+			return nil, e
+		}
+	}
+}
+
+func (c *Client) attempt(ctx context.Context, method, path string, body []byte, key string) ([]byte, error) {
 	method = strings.ToUpper(method)
 	switch method {
 	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:

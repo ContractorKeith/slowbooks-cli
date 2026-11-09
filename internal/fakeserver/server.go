@@ -16,8 +16,9 @@ type Request struct {
 	Body        json.RawMessage
 }
 type Server struct {
-	mu       sync.Mutex
-	requests []Request
+	mu        sync.Mutex
+	requests  []Request
+	customers []json.RawMessage
 }
 
 // New constructs a fake with an independent request recorder.
@@ -45,15 +46,36 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.requests = append(s.requests, Request{r.Method, r.URL.RequestURI(), r.Header.Clone(), body})
 	s.mu.Unlock()
 	w.Header().Set("Content-Type", "application/json")
-	if r.Method != http.MethodGet {
-		w.WriteHeader(405)
-		_, _ = w.Write([]byte(`{"detail":"Method not allowed"}`))
-		return
-	}
 	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if token != "" && token != "sbp_no_companies" && token != "sbp_test" && token != "sbp_bookkeeper" && token != "sbp_accountant" && token != "sbp_readonly" {
 		w.WriteHeader(401)
 		_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
+		return
+	}
+	if r.URL.Path == "/api/customers" {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		if r.Method == "POST" {
+			s.customers = append(s.customers, body)
+			_, _ = w.Write(body)
+			return
+		}
+		if r.Method == "GET" {
+			customers := s.customers
+			if customers == nil {
+				customers = []json.RawMessage{}
+			}
+			_ = json.NewEncoder(w).Encode(customers)
+			return
+		}
+	}
+	if r.Method == "POST" && r.URL.Path == "/api/payments" {
+		_, _ = w.Write(body)
+		return
+	}
+	if r.Method != http.MethodGet {
+		w.WriteHeader(405)
+		_, _ = w.Write([]byte(`{"detail":"Method not allowed"}`))
 		return
 	}
 	if (r.URL.Path == "/api/companies" && token == "sbp_no_companies") || (r.URL.Path == "/api/audit" && token == "sbp_readonly") || (r.URL.Path == "/api/employees" && (token == "sbp_readonly" || token == "sbp_accountant")) {

@@ -64,7 +64,11 @@ func TestStatusAndHeaders(t *testing.T) {
 				if output.ExitCode(err) != tc.exit {
 					t.Fatalf("exit = %d, err = %v", output.ExitCode(err), err)
 				}
-				if calls != 1 {
+				wantCalls := 1
+				if method == "GET" && tc.retryable {
+					wantCalls = 2
+				}
+				if calls != wantCalls {
 					t.Fatalf("attempts = %d", calls)
 				}
 				if err != nil {
