@@ -27,6 +27,8 @@ jobs:
         with:
           name: sbp-release
           path: .tmp/dist/*
+          include-hidden-files: true
+          if-no-files-found: error
   publish:
     needs: artifacts
     # A manual dispatch from a branch can never publish a release.
