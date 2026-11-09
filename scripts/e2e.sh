@@ -44,7 +44,30 @@ export SBP_E2E_READONLY_TOKEN="$run/readonly.token"
 export SBP_E2E_SNAPSHOT="$run/openapi.json"
 # HTTP bootstrap and version checks live at the same client seam as unit tests.
 go test ./internal/client -run '^TestE2E$' -count=1 -v
-# M1–M5: append milestone blocks here, using the exported URL and token paths.
+# M1: use only this stack's tokens and isolated CLI state.
+export SLOWBOOKS_CONFIG_DIR="$run/config" SLOWBOOKS_CACHE_DIR="$run/cache"
+export GOCACHE="$(go env GOCACHE)" GOMODCACHE="$(go env GOMODCACHE)"
+export HOME="$run/home"
+mkdir -p "$HOME"
+unset SLOWBOOKS_URL SLOWBOOKS_TOKEN_FILE SLOWBOOKS_PROFILE SLOWBOOKS_COMPANY SLOWBOOKS_TIMEOUT_SECONDS
+go build -o "$run/sbp" ./cmd/sbp
+"$run/sbp" auth login --url "$SBP_E2E_URL" < "$SBP_E2E_TOKEN" > "$run/login.json"
+"$run/sbp" auth status --json > "$run/status.json"
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["data"]["role"]=="bookkeeper"' "$run/status.json"
+"$run/sbp" auth login --profile readonly --url "$SBP_E2E_URL" < "$SBP_E2E_READONLY_TOKEN" > "$run/login-readonly.json"
+"$run/sbp" auth status --profile readonly --json > "$run/status-readonly.json"
+python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["data"]["role"]=="readonly"' "$run/status-readonly.json"
+printf 'sbp_wrong\n' > "$run/wrong.token"
+status=0
+SLOWBOOKS_TOKEN_FILE="$run/wrong.token" "$run/sbp" auth status --json > "$run/wrong.json" || status=$?
+test "$status" -eq 3
+"$run/sbp" doctor --json > "$run/doctor.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and all(c["ok"] for c in d["data"]["checks"])' "$run/doctor.json"
+export SLOWBOOKS_CONFIG_DIR="$run/env-config" SLOWBOOKS_URL="$SBP_E2E_URL" SLOWBOOKS_TOKEN_FILE="$SBP_E2E_TOKEN"
+"$run/sbp" version --json > "$run/env-version.json"
+"$run/sbp" doctor --json > "$run/env-doctor.json"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and all(c["ok"] for c in d["data"]["checks"])' "$run/env-doctor.json"
+echo 'e2e: M1 auth, roles, wrong token, profiles and env-only doctor passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
 fi

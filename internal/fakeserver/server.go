@@ -4,6 +4,7 @@ package fakeserver
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/ContractorKeith/slowbooks-cli/testdata"
@@ -49,10 +50,28 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(`{"detail":"Method not allowed"}`))
 		return
 	}
+	token := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if token != "" && token != "sbp_no_companies" && token != "sbp_test" && token != "sbp_bookkeeper" && token != "sbp_accountant" && token != "sbp_readonly" {
+		w.WriteHeader(401)
+		_, _ = w.Write([]byte(`{"detail":"Invalid token"}`))
+		return
+	}
+	if (r.URL.Path == "/api/companies" && token == "sbp_no_companies") || (r.URL.Path == "/api/audit" && token == "sbp_readonly") || (r.URL.Path == "/api/employees" && (token == "sbp_readonly" || token == "sbp_accountant")) {
+		w.WriteHeader(403)
+		data, _ := testdata.Files.ReadFile("fake/forbidden.json")
+		_, _ = w.Write(data)
+		return
+	}
 	var name string
 	switch r.URL.Path {
 	case "/openapi.json":
 		name = "openapi-2.31.10.json"
+	case "/api/audit":
+		name = "fake/audit.json"
+	case "/api/employees":
+		name = "fake/employees.json"
+	case "/api/companies":
+		name = "fake/companies.json"
 	case "/api/system":
 		name = "fake/system.json"
 	default:
