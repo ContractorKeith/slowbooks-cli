@@ -20,9 +20,10 @@ type Options struct {
 }
 
 type Client struct {
-	base    *url.URL
-	http    *http.Client
-	options Options
+	base             *url.URL
+	http             *http.Client
+	options          Options
+	maxResponseBytes int64
 }
 
 // New enforces transport policy before credentials can be sent.
@@ -44,11 +45,16 @@ func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client
 	if options.Timeout < time.Second || options.Timeout > 3600*time.Second {
 		return nil, usage("timeout must be 1–3600 seconds")
 	}
-	transport, err := transportFor(ctx, base, lookup)
+	lookupCtx, cancel := context.WithTimeout(ctx, options.Timeout)
+	defer cancel()
+	transport, err := transportFor(lookupCtx, base, lookup)
 	if err != nil {
+		if lookupCtx.Err() != nil {
+			return nil, &output.Error{Code: "network", Message: "host lookup failed or timed out", Hint: "check the server URL and connection"}
+		}
 		return nil, err
 	}
-	return &Client{base: base, options: options, http: &http.Client{
+	return &Client{base: base, options: options, maxResponseBytes: 64 << 20, http: &http.Client{
 		Transport: transport, Timeout: options.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}}, nil
@@ -56,6 +62,12 @@ func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client
 
 // Do performs one attempt. M2 adds the read-only retry policy at this seam.
 func (c *Client) Do(ctx context.Context, method, path string, body []byte, key string) ([]byte, error) {
+	method = strings.ToUpper(method)
+	switch method {
+	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
+	default:
+		return nil, usage("method must be GET, HEAD, POST, PUT, PATCH or DELETE")
+	}
 	target, err := requestURL(c.base, path)
 	if err != nil {
 		return nil, err
@@ -92,9 +104,14 @@ func (c *Client) Do(ctx context.Context, method, path string, body []byte, key s
 		return nil, networkError("request failed or timed out", read)
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, c.maxResponseBytes+1))
 	if err != nil {
 		return nil, networkError("could not read server response", read)
+	}
+	if int64(len(data)) > c.maxResponseBytes {
+		err := networkError("response too large", read)
+		err.Retryable = false
+		return nil, err
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return data, nil
@@ -150,7 +167,7 @@ func responseError(status int, data []byte, read bool) *output.Error {
 		e.Code = "invalid"
 	case status >= 500:
 		e.Code = "server"
-		e.Retryable = read
+		e.Retryable = read && (status == 502 || status == 503 || status == 504)
 	}
 	var payload struct {
 		Detail json.RawMessage `json:"detail"`
@@ -158,7 +175,7 @@ func responseError(status int, data []byte, read bool) *output.Error {
 	if json.Unmarshal(data, &payload) == nil && payload.Detail != nil {
 		e.Detail = payload.Detail
 		var message string
-		if json.Unmarshal(payload.Detail, &message) == nil {
+		if json.Unmarshal(payload.Detail, &message) == nil && !(status >= 300 && status < 400) {
 			e.Message = message
 		}
 	}

@@ -2,8 +2,8 @@
 
 Piped stdout, or `--json`, selects JSON. Each command prints one newline-terminated
 object on stdout. A terminal without `--json` gets a key/value view; human errors
-go to stderr. `--quiet` prints only the successful `data` value as JSON. Errors
-keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
+go to stderr, with a non-empty hint on a second line. `--quiet` prints only the
+successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
 no color. `--jq` is reserved and returns a usage error until M3.
 
 Success (all fields are always present; `next` is an array, including when empty):
@@ -22,7 +22,10 @@ Error (all error fields are always present):
 arrays; it is `null` when absent. `message` uses the server's sentence when detail
 is a string. `retryable` is false for writes. Network failures on writes include
 a hint to check the books before running the write again. M0 makes one attempt;
-read retries arrive in M2. Timeout is 120 seconds by default, range 1–3600.
+read retries arrive in M2. Only network errors and HTTP 502/503/504 are marked
+retryable for reads; HTTP 500/501 are not. Timeout is 120 seconds by default, range
+1–3600, and also bounds DNS lookup. Responses larger than 64 MiB fail with exit 8
+and message `response too large`; these size failures are not retryable.
 
 | Exit | code | Meaning |
 |---|---|---|

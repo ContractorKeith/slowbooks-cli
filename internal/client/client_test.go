@@ -34,9 +34,10 @@ func TestStatusAndHeaders(t *testing.T) {
 	cases := []struct {
 		status, exit int
 		code         string
+		retryable    bool
 	}{
-		{200, 0, ""}, {204, 0, ""}, {301, 2, "usage"}, {400, 1, "error"}, {401, 3, "auth"}, {403, 4, "refused"},
-		{404, 5, "not_found"}, {409, 6, "conflict"}, {422, 7, "invalid"}, {429, 1, "error"}, {500, 8, "server"}, {502, 8, "server"}, {503, 8, "server"}, {504, 8, "server"},
+		{200, 0, "", false}, {204, 0, "", false}, {301, 2, "usage", false}, {400, 1, "error", false}, {401, 3, "auth", false}, {403, 4, "refused", false},
+		{404, 5, "not_found", false}, {409, 6, "conflict", false}, {422, 7, "invalid", false}, {429, 1, "error", false}, {500, 8, "server", false}, {501, 8, "server", false}, {502, 8, "server", true}, {503, 8, "server", true}, {504, 8, "server", true},
 	}
 	for _, tc := range cases {
 		t.Run(http.StatusText(tc.status), func(t *testing.T) {
@@ -68,7 +69,7 @@ func TestStatusAndHeaders(t *testing.T) {
 				}
 				if err != nil {
 					e := output.AsError(err)
-					if e.Code != tc.code || e.Retryable != (tc.status >= 500 && method == "GET") {
+					if e.Code != tc.code || e.Retryable != (tc.retryable && method == "GET") {
 						t.Fatalf("error = %+v", e)
 					}
 					detail, _ := json.Marshal(e.Detail)

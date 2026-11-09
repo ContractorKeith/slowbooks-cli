@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Fast offline acceptance; Bash 3.2 compatible.
 set -eu
+set -o pipefail
 cd "$(dirname "$0")/.."
 export TMPDIR="${TMPDIR:-$PWD/.tmp}"
 mkdir -p "$TMPDIR"

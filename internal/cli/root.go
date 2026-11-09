@@ -17,10 +17,12 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	var profile, company, jq string
 	var timeout int
 	var noColor bool
+	jsonOutput, quiet := w.JSON, w.Quiet
 	root := &cobra.Command{
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
 		Use:               "sbp", Short: "SlowBooks Pro from the shell", SilenceErrors: true, SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			w.JSON, w.Quiet = jsonOutput, quiet
 			if jq != "" {
 				return &output.Error{Code: "usage", Message: "--jq: not yet"}
 			}
@@ -39,8 +41,8 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	flags := root.PersistentFlags()
 	flags.StringVar(&profile, "profile", "", "Saved profile")
 	flags.StringVar(&company, "company", "", "Company")
-	flags.BoolVar(&w.JSON, "json", false, "Print JSON")
-	flags.BoolVar(&w.Quiet, "quiet", false, "Print data only")
+	flags.BoolVar(&jsonOutput, "json", jsonOutput, "Print JSON")
+	flags.BoolVar(&quiet, "quiet", quiet, "Print data only")
 	flags.StringVar(&jq, "jq", "", "Filter JSON (not yet)")
 	flags.IntVar(&timeout, "timeout", 120, "Request timeout in seconds")
 	flags.BoolVar(&noColor, "no-color", false, "Disable color")
@@ -66,6 +68,9 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 func Execute(root *cobra.Command, w *output.Writer, args []string) int {
 	root.SetArgs(args)
 	if err := root.Execute(); err != nil {
+		// Argument and flag errors can happen before PersistentPreRunE.
+		w.JSON, _ = root.PersistentFlags().GetBool("json")
+		w.Quiet, _ = root.PersistentFlags().GetBool("quiet")
 		if strings.HasPrefix(err.Error(), "unknown command ") {
 			err = &output.Error{Code: "usage", Message: err.Error()}
 		}

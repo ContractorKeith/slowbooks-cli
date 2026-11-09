@@ -25,12 +25,13 @@ cleanup() {
   status=$?
   if test "$keep" = 1 && test "$passed" = 1; then
     echo "kept: $SBP_E2E_URL"
-    echo "bookkeeper token: $SBP_E2E_TOKEN"
-    echo "readonly token: $SBP_E2E_READONLY_TOKEN"
+    echo "bookkeeper token file: $SBP_E2E_TOKEN"
+    echo "readonly token file: $SBP_E2E_READONLY_TOKEN"
     echo "teardown: docker compose --env-file '$run/compose.env' -f '$checkout/docker-compose.yml' -p '$project' down -v"
   else
     if test "$status" != 0; then compose logs --tail 60; fi
     compose down -v --remove-orphans
+    rm -r "$run"
     echo 'e2e: stack torn down'
   fi
   exit "$status"

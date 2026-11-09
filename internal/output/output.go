@@ -80,6 +80,9 @@ func (w *Writer) Failure(err error) int {
 		}
 	} else {
 		_, _ = fmt.Fprintln(w.Err, e.Message)
+		if e.Hint != "" {
+			_, _ = fmt.Fprintln(w.Err, e.Hint)
+		}
 	}
 	return ExitCode(e)
 }

@@ -7,6 +7,9 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
+	"time"
+
+	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 )
 
 func TestHTTPPinsCheckedAddresses(t *testing.T) {
@@ -46,5 +49,25 @@ func TestHTTPPinsCheckedAddresses(t *testing.T) {
 	}
 	if c.http.Transport.(*http.Transport).Proxy != nil {
 		t.Fatal("HTTP transport must bypass proxies")
+	}
+}
+
+func TestDNSLookupBoundedByTimeout(t *testing.T) {
+	isolate(t)
+	lookup := func(ctx context.Context, host string) ([]net.IPAddr, error) {
+		deadline, ok := ctx.Deadline()
+		if !ok || time.Until(deadline) > time.Second {
+			t.Fatal("lookup has no configured timeout")
+		}
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	start := time.Now()
+	_, err := newClient(context.Background(), Options{URL: "http://slow.invalid", Timeout: time.Second}, lookup)
+	if output.ExitCode(err) != 8 {
+		t.Fatalf("lookup timeout: %v", err)
+	}
+	if time.Since(start) > 3*time.Second {
+		t.Fatal("lookup exceeded timeout")
 	}
 }
