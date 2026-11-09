@@ -75,6 +75,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(nil))
 	s.addReads(root)
 	s.addWrites(root)
+	s.addAgent(root)
 	return root
 }
 

@@ -49,6 +49,8 @@ normalize() {
 unset SLOWBOOKS_URL
 echo '== goldens'
 "$scratch/sbp" version --json | diff - testdata/golden/version.json
+"$scratch/sbp" commands --json | diff - testdata/golden/commands.json
+"$scratch/sbp" --help --agent | diff - testdata/golden/commands.json
 "$scratch/sbp" auth status --json | normalize | diff - testdata/golden/auth-status.json
 "$scratch/sbp" profile list --json | normalize | diff - testdata/golden/profile-list.json
 "$scratch/sbp" doctor --json | normalize | diff - testdata/golden/doctor.json

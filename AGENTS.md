@@ -8,7 +8,7 @@ project, private, listed in the SBP plugin directory as `sbp-cli`. "Done" for v1
 every v1 row in `docs/PLAN.md` §3 working on macOS, Linux and Windows.
 
 ## Status
-planned — 2026-11-09: plan, glossary and ADRs written; milestones M0–M6 are issues #1–#7.
+v1 complete, awaiting skeptic review — 2026-11-09.
 
 ## Commands
 ```bash
