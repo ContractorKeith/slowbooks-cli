@@ -247,7 +247,7 @@ Release `version` output omits the leading `v`, matching the plugin manifest.
 Success hints omit unknown record placeholders. Environment-only catalog cache
 directories include a short hash of the server URL and company. If an environment
 URL differs from the selected profile and no environment token file is supplied,
-commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before reading its token.
+commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before sending its token.
 Company and key header values are validated locally (exit 2), including dry-run.
 Login and online writes validate non-empty company selections against
 `/api/companies`; doctor always checks it and fails its companies row for unknown
