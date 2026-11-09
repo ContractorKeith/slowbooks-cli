@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -68,6 +69,9 @@ func TestQAWorktreesIgnored(t *testing.T) {
 }
 
 func TestAcceptanceNormalizerPreservesMoneySpelling(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("accept.sh runs only on Linux/macOS; Windows does not run the shell acceptance harness")
+	}
 	isolate(t)
 	raw, err := os.ReadFile("../../scripts/accept.sh")
 	if err != nil {
