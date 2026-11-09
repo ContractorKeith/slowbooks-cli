@@ -70,7 +70,7 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 		err = s.runCall(cmd, []string{row.Method, path}, opts)
 		if err != nil && name != "record" {
 			e := output.AsError(err)
-			if e.Code == "network" && client.WriteReachedWire(err) {
+			if (e.Code == "network" || e.Code == "server") && client.WriteReachedWire(err) {
 				e.Hint = "check sbp " + kind + " list --limit 5 before running this write again"
 			}
 			return e

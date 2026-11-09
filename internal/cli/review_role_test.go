@@ -46,16 +46,16 @@ func TestTokenRoleIgnoresCompanyAndLoginForwardsCompany(t *testing.T) {
 	setupAuth(t)
 	fake := fakeserver.New()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if (r.URL.Path == "/api/audit" || r.URL.Path == "/api/employees") && r.Header.Get("X-SlowBooks-Company") == "wrong" {
+		if (r.URL.Path == "/api/audit" || r.URL.Path == "/api/employees") && r.Header.Get("X-SlowBooks-Company") == "acme" {
 			w.WriteHeader(403)
 			return
 		}
 		fake.ServeHTTP(w, r)
 	}))
 	defer server.Close()
-	code, out, _ := invoke(t, "sbp_bookkeeper", "auth", "login", "--url", server.URL, "--company", "wrong")
+	code, out, _ := invoke(t, "sbp_bookkeeper", "auth", "login", "--url", server.URL, "--company", "acme")
 	reqs := fake.Requests()
-	if len(reqs) == 0 || reqs[0].Header.Get("X-SlowBooks-Company") != "wrong" {
+	if len(reqs) == 0 || reqs[0].Header.Get("X-SlowBooks-Company") != "acme" {
 		t.Fatal("login did not forward company to system")
 	}
 	if code != 0 || !strings.Contains(out, `"role":"bookkeeper"`) {

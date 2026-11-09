@@ -70,15 +70,16 @@ func (w *Writer) filter(value any) error {
 		if err, ok := value.(error); ok {
 			return &Error{Code: "usage", Message: fmt.Sprintf("--jq: %v", err)}
 		}
-		encoded, err := json.Marshal(value)
-		if err != nil {
+		var buf bytes.Buffer
+		if err := jsonEncoder(&buf).Encode(value); err != nil {
 			return err
 		}
-		if len(encoded)+1 > remaining {
+		encoded := buf.Bytes()
+		if len(encoded) > remaining {
 			return jqBound("output exceeds 64 MiB")
 		}
-		remaining -= len(encoded) + 1
-		if _, err := w.Out.Write(append(encoded, '\n')); err != nil {
+		remaining -= len(encoded)
+		if _, err := w.Out.Write(encoded); err != nil {
 			return err
 		}
 	}

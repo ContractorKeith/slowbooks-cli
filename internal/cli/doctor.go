@@ -80,8 +80,7 @@ func (s *session) doctor(cmd *cobra.Command, args []string) error {
 			r = roleErr.Error()
 		}
 		add("role", r, roleErr)
-		var companies any
-		companyErr := getJSON(cmd, c, "/api/companies", &companies)
+		companyErr := s.checkCompany(cmd, c, true)
 		detail = "available"
 		if companyErr != nil {
 			detail = companyErr.Error()

@@ -61,6 +61,9 @@ func versionComponent(version string) string {
 // Load checks the server version unless offline. Cache writes are best effort;
 // callers render Warning through output while still using the fetched catalog.
 func Load(ctx context.Context, cl *client.Client, profile string, offline bool) (*Catalog, error) {
+	if profile == "" {
+		profile = "env-" + cl.CacheIdentity()
+	}
 	dir, dirErr := cacheDir(profile)
 	if offline {
 		if dirErr != nil {

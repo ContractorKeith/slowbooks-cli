@@ -9,6 +9,15 @@ Download the archive for your OS and architecture from
 against `SHA256SUMS`, extract it, and put `sbp` (`sbp.exe` on Windows) on your
 PATH. Archives cover Linux, macOS and Windows on x64 and arm64.
 
+On macOS, a browser download may be quarantined. After extracting, run
+`xattr -d com.apple.quarantine sbp` before starting the binary. Downloads made
+with `gh release download` or `curl` are unaffected.
+
+On Windows PowerShell 5.1, save downloads with `-o file`, or preserve raw stdout
+with `cmd /c "sbp ... -o - > file"`; PowerShell's `>` re-encodes bytes. Prefer
+`--data @file` over inline JSON, since PowerShell 5.1 changes inline quoting.
+Save JSON files as UTF-8 (a UTF-8 BOM is accepted; UTF-16 is unsupported).
+
 While this repository is private, release downloads and `go install ...@latest`
 require repository access (`go install` also needs Git credentials). Building
 from a clone you already have works now:
@@ -36,7 +45,7 @@ An existing Switchboard connection also works: set `SLOWBOOKS_URL` and
 Use `--company` or `SLOWBOOKS_COMPANY` to select a company.
 
 ```bash
-sbp invoices list --status open --json --jq '.data[].id'
+sbp invoices list --open --json --jq '.data[].id'
 sbp payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run
 sbp invoices pdf 31 -o invoice-31.pdf
 ```
@@ -65,3 +74,10 @@ For contributors: `bash scripts/accept.sh` runs the offline gate;
 manifest in `.tmp/dist` without publishing. `scripts/smoke-live.sh` is manual:
 it requires explicit server/token environment variables and creates then voids
 one invoice. It refuses to run in CI.
+
+Invoice and bill lists accept `--open` for `open_only=true`, or `--status` with
+one declared status: invoices `draft|sent|partial|paid|void`; bills
+`draft|unpaid|partial|paid|void`. Invalid statuses exit 2 before the list request.
+Payment keys use 1–128 letters, digits, or `._:-`. Selected companies are checked
+at login and before writes; an unknown company exits 2 and lists valid choices.
+`sbp version` reports release versions without the leading `v`.

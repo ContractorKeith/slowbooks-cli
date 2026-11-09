@@ -38,17 +38,17 @@ func Reads() []Row {
 		{"bill-payments", "bill_payment_id", []string{"id", "date", "amount"}},
 		{"journal", "entry_id", []string{"id", "date", "description"}},
 	} {
-		list := Row{Name: kind.name + " list", Method: "GET", Path: "/api/" + kind.name, Noun: kind.name, List: true, Columns: kind.columns, Next: []string{"sbp " + kind.name + " show <id>"}}
+		list := Row{Name: kind.name + " list", Method: "GET", Path: "/api/" + kind.name, Noun: kind.name, List: true, Columns: kind.columns}
 		if kind.name == "invoices" || kind.name == "bills" {
-			list.Flags = []Flag{{"status", "status"}}
+			list.Flags = []Flag{{"status", "status"}, {"open", "open_only"}}
 		}
 		rows = append(rows, list, Row{Name: kind.name + " show", Method: "GET", Path: "/api/" + kind.name + "/{" + kind.id + "}", Args: []string{kind.id}, Next: []string{"sbp " + kind.name + " list"}})
 	}
 	return append(rows,
-		Row{Name: "reports list", Method: "GET", Catalog: true, List: true, Noun: "reports", Columns: []string{"name", "summary"}, Next: []string{"sbp reports run <name>"}},
+		Row{Name: "reports list", Method: "GET", Catalog: true, List: true, Noun: "reports", Columns: []string{"name", "summary"}},
 		Row{Name: "reports run", Method: "GET", Path: "/api/reports/{name}", Args: []string{"name"}, Flags: []Flag{{Name: "from"}, {Name: "to"}}, Next: []string{"sbp reports list"}},
-		Row{Name: "invoices pdf", Method: "GET", Path: "/api/invoices/{invoice_id}/pdf", Args: []string{"invoice_id"}, Download: true, Next: []string{"sbp invoices show <id>"}},
-		Row{Name: "search", Method: "GET", Path: "/api/search", Args: []string{"q"}, Noun: "results", Next: []string{"sbp customers show <id>"}},
+		Row{Name: "invoices pdf", Method: "GET", Path: "/api/invoices/{invoice_id}/pdf", Args: []string{"invoice_id"}, Download: true},
+		Row{Name: "search", Method: "GET", Path: "/api/search", Args: []string{"q"}, Noun: "results"},
 	)
 }
 

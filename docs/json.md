@@ -3,7 +3,9 @@
 Piped stdout, or `--json`, selects JSON. Each command prints one newline-terminated
 object on stdout (except jq streams). A terminal without `--json` gets a table for
 arrays of objects and a key/value view for objects; human errors
-go to stderr, with a non-empty hint on a second line. `--quiet` prints only the
+go to stderr, with a non-empty hint on a second line. All human diagnostics,
+including warnings, escape controls with the table escaper. JSON encoders do not
+HTML-escape `<`, `>` or `&`. `--quiet` prints only the
 successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
 no color. `--jq <expr>` filters the full success envelope by default (for example,
 `--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
@@ -32,14 +34,15 @@ Error (all error fields are always present):
 
 `detail` preserves the server's JSON value, including strings and validation-error
 arrays; it is `null` when absent. `message` uses the server's sentence when detail
-is a string. Writes are never automatically retried. Network failures on unkeyed
+is a string, an object with `message`, or an array whose first item has
+`message` or `msg` (in that order). Writes are never automatically retried. Network failures and HTTP 502/503/504 on unkeyed
 writes have
 `retryable:false` and a hint to check the books before running the write again.
-Network failures on writes carrying `--key` have `retryable:true` and the hint
+Network failures and HTTP 502/503/504 on writes carrying `--key` have `retryable:true` and the hint
 `rerun with the same --key`. Reads retry once on network failure or HTTP
 502/503/504. Only network errors and HTTP 502/503/504 are marked
 retryable for reads; HTTP 500/501 are not. Timeout is 120 seconds by default, range
-1–3600, and also bounds DNS lookup. Responses larger than 64 MiB fail with exit 8
+1–3600, per attempt, and also bounds DNS lookup. Reads may take two attempts. Responses larger than 64 MiB fail with exit 8
 and message `response too large`; these size failures are not retryable.
 
 | Exit | code | Meaning |
@@ -111,11 +114,11 @@ Unknown `ops call` operations exit 2; `api` permits them with a stderr warning.
 File routes are GET/HEAD operations identified by their path or declared non-JSON
 success media types; they exit 2 with a `sbp download <path>` hint. Writes on
 paths containing file-related words remain callable. Keyed writes without `--key`
-exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. Repeated
+exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. UTF-8 BOMs are
+accepted; UTF-16 input exits 2 with a save-as-UTF-8 hint. Repeated
 `--param name=value` fills path placeholders and otherwise adds query values.
 
-Keys are 1–200 bytes and must contain no control characters or leading/trailing
-whitespace; an explicitly empty `--key` exits 2. Writes with trailing slashes
+Keys must match `[A-Za-z0-9._:-]{1,128}`; an explicitly empty `--key` exits 2. Writes with trailing slashes
 are refused with exit 2 before lookup or sending. Malformed query strings exit
 2 instead of silently dropping filters. Path parameter values must be non-empty
 single segments and cannot contain slashes, traversal, controls, or ambiguous
@@ -130,7 +133,8 @@ M3 named reads use the same request path as `ops call`. Lists default to 50 rows
 For operations declaring `limit`, the client requests one extra row to detect
 truncation. The summary says `N of N+ shown; --all for everything` when this
 probe finds more rows. Lists without server limits trim locally and report
-`N of M shown; --all for everything`; otherwise the summary is `M <noun>`.
+`N of M shown; --all for everything`; otherwise the summary is `M <noun>`, using a singular noun for one row.
+On a TTY, trimmed-list summaries also appear on stderr.
 Non-array responses pass through unchanged.
 
 `--all` follows declared `skip` or `offset` paging until a short page. Page size
@@ -146,7 +150,12 @@ control characters. Padding uses a small local display-width function covering
 common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
 complex joined emoji sequences and terminal-specific widths may vary.
 
-Invoices and bills expose `--status`; the pinned server has no `since` parameter.
+Invoices and bills expose `--open`, mapping to declared `open_only=true`, and
+`--status`, validated locally against catalog enums. The pinned invoice response
+declares `draft|sent|partial|paid|void`; its query omits that enum. Bill schemas
+omit it entirely, so the verified 2.31.10 `draft|unpaid|partial|paid|void` values
+are the fallback when no enum is declared. Invalid statuses exit 2 before the
+list request. The pinned server has no `since` parameter.
 `reports list` discovers direct JSON report operations from the catalog, since
 there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
 Date flags use the chosen operation's declared parameters: `--from` targets
@@ -233,3 +242,14 @@ the leading `v` removed. Only stable `x.y.z` build versions are accepted;
 prerelease, build-metadata and unversioned development builds exit 2. The local
 release dry run injects `v0.0.0`. Report paths can be regenerated with
 `go test ./internal/commands -run '^TestReportsEmbedded$' -update`.
+
+Release `version` output omits the leading `v`, matching the plugin manifest.
+Success hints omit unknown record placeholders. Environment-only catalog cache
+directories include a short hash of the server URL and company. If an environment
+URL differs from the selected profile and no environment token file is supplied,
+commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before reading its token.
+Company and key header values are validated locally (exit 2), including dry-run.
+Login and online writes validate non-empty company selections against
+`/api/companies`; doctor always checks it and fails its companies row for unknown
+selections. One company lookup is cached in memory per invocation. Offline
+dry-run makes no HTTP requests and cannot verify company membership.

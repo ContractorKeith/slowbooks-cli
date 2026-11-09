@@ -2,10 +2,10 @@ package output
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/itchyny/gojq"
@@ -57,25 +57,32 @@ func (w *Writer) Success(data any, summary string, next []string) error {
 		return w.filter(value)
 	}
 	if w.Quiet || w.JSON || !w.TTY {
-		return json.NewEncoder(w.Out).Encode(value)
+		return jsonEncoder(w.Out).Encode(value)
 	}
-	return w.human(data)
+	if err := w.human(data); err != nil {
+		return err
+	}
+	if strings.Contains(summary, "shown; --all for everything") {
+		_, err := fmt.Fprintln(w.Err, escapeControls(summary))
+		return err
+	}
+	return nil
 }
 
 // Failure sends JSON errors to stdout and human diagnostics to stderr.
 func (w *Writer) Failure(err error) int {
 	e := AsError(err)
 	if w.JSON || !w.TTY {
-		if writeErr := json.NewEncoder(w.Out).Encode(struct {
+		if writeErr := jsonEncoder(w.Out).Encode(struct {
 			OK    bool   `json:"ok"`
 			Error *Error `json:"error"`
 		}{false, e}); writeErr != nil {
 			return 1
 		}
 	} else {
-		_, _ = fmt.Fprintln(w.Err, e.Message)
+		_, _ = fmt.Fprintln(w.Err, escapeControls(e.Message))
 		if e.Hint != "" {
-			_, _ = fmt.Fprintln(w.Err, e.Hint)
+			_, _ = fmt.Fprintln(w.Err, escapeControls(e.Hint))
 		}
 	}
 	return ExitCode(e)

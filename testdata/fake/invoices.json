@@ -1,1 +1,1 @@
-[{"id":1,"invoice_number":"INV-1","customer_id":1,"date":"2026-01-01","status":"open","total":"100.00"}]
+[{"id":1,"invoice_number":"INV-1","customer_id":1,"date":"2026-01-01","status":"sent","total":"100.00"}]

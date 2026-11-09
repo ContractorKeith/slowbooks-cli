@@ -103,9 +103,22 @@ func Parse(data []byte) (*Catalog, error) {
 	return c, nil
 }
 func str(v any) string { s, _ := v.(string); return s }
+
+// IsKeyed recognizes payment routes even when the catalog is incomplete.
 func IsKeyed(method, path string) bool {
-	return strings.EqualFold(method, "POST") && (path == "/api/payments" || path == "/api/bill-payments" || path == "/api/payments/{payment_id}/discount" || path == "/api/bill-payments/{bill_payment_id}/discount")
+	if !strings.EqualFold(method, "POST") {
+		return false
+	}
+	parts := strings.Split(path, "/")
+	if len(parts) != 3 && len(parts) != 5 {
+		return false
+	}
+	if parts[0] != "" || parts[1] != "api" || (parts[2] != "payments" && parts[2] != "bill-payments") {
+		return false
+	}
+	return len(parts) == 3 || parts[3] != "" && parts[4] == "discount"
 }
+
 func IsFile(path string) bool {
 	for _, part := range strings.Split(strings.ToLower(path), "/") {
 		switch part {

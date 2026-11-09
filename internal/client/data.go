@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"encoding/json"
 	"io"
 	"os"
@@ -32,6 +33,10 @@ func ReadData(input io.Reader, data string) ([]byte, error) {
 	if len(body) > maxRequestBytes {
 		return nil, usage("--data exceeds 64 MiB")
 	}
+	if bytes.HasPrefix(body, []byte{0xff, 0xfe}) || bytes.HasPrefix(body, []byte{0xfe, 0xff}) {
+		return nil, usage("UTF-16 is not supported; save as UTF-8")
+	}
+	body = bytes.TrimPrefix(body, []byte{0xef, 0xbb, 0xbf})
 	if !json.Valid(body) {
 		return nil, &output.Error{Code: "usage", Message: "--data must be valid JSON"}
 	}

@@ -1,14 +1,17 @@
 package client
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 )
 
+var paymentKey = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
+
 // ValidateKey prevents header normalization and local failures from changing retry advice.
 func ValidateKey(key string) error {
-	if key == "" || len(key) > 200 || strings.TrimSpace(key) != key || strings.ContainsFunc(key, unicode.IsControl) {
-		return usage("--key must be 1–200 bytes with no control characters or leading/trailing whitespace")
+	if !paymentKey.MatchString(key) {
+		return usage("--key must match [A-Za-z0-9._:-]{1,128}")
 	}
 	return nil
 }

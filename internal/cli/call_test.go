@@ -78,7 +78,7 @@ func TestParamsAndDataSources(t *testing.T) {
 		}
 	}
 	code, out, _ = invoke(t, "", "api", "GET", "/api/customers/{customer_id}", "--param", "customer_id=42", "--param", "q=a&b", "--param", "q=two", "--dry-run")
-	if code != 0 || !strings.Contains(out, "/api/customers/42?q=a%26b\\u0026q=two") {
+	if code != 0 || !strings.Contains(out, "/api/customers/42?q=a%26b&q=two") {
 		t.Fatal(code, out)
 	}
 	reqs := fake.Requests()

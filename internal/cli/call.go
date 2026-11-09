@@ -32,7 +32,7 @@ type callOptions struct {
 	dry, allowUnknown, keySet, dataSet bool
 	limit                              int
 	list, all                          bool
-	prepare                            func(catalog.Operation, url.Values) error
+	prepare                            func(*catalog.Catalog, catalog.Operation, url.Values) error
 	render                             func(any, bool) error
 }
 
@@ -101,7 +101,7 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 		return &output.Error{Code: "usage", Message: "this operation requires --key", Hint: "supply --key <payment-key>; reuse the same key when rerunning"}
 	}
 	if opts.prepare != nil {
-		if err := opts.prepare(op, query); err != nil {
+		if err := opts.prepare(cat, op, query); err != nil {
 			return err
 		}
 	}
@@ -120,6 +120,11 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	}
 	if opts.dry {
 		return s.w.Success(preview, "Dry run; no request sent", nil)
+	}
+	if method != "GET" && method != "HEAD" {
+		if err := s.checkCompany(cmd, cl, false); err != nil {
+			return err
+		}
 	}
 	result, more, err := s.callResult(cmd, cl, method, target, body, opts, op)
 	if err != nil {

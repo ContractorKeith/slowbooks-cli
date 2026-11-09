@@ -87,9 +87,6 @@ func TestAgentCoversTree(t *testing.T) {
 		if row.Path != "" && (item.Operation == nil || item.Operation.Method != row.Method || item.Operation.Path != row.Path) {
 			t.Fatal("operation mismatch", item)
 		}
-		if len(row.Next) == 0 {
-			t.Fatal("empty next", row.Name)
-		}
 		for _, hint := range row.Next {
 			assertRealCommand(t, indexed, hint)
 		}

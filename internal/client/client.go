@@ -34,6 +34,9 @@ func New(ctx context.Context, options Options) (*Client, error) {
 }
 
 func newClient(ctx context.Context, options Options, lookup lookupFunc) (*Client, error) {
+	if err := validateHeaders(options); err != nil {
+		return nil, err
+	}
 	base, err := url.Parse(options.URL)
 	if err != nil || base.Hostname() == "" || base.User != nil || base.RawQuery != "" || base.Fragment != "" || (base.Path != "" && base.Path != "/") {
 		return nil, usage("server URL must contain only a scheme and host")
@@ -95,7 +98,7 @@ func (c *Client) DoResponse(ctx context.Context, method, path string, body []byt
 			return data, nil
 		}
 		e := output.AsError(err)
-		if !read && key != "" && e.Code == "network" && e.Message != "response too large" {
+		if !read && key != "" && (e.Code == "network" || e.Code == "server" && WriteReachedWire(err)) && e.Message != "response too large" {
 			e.Retryable = true
 			e.Hint = "rerun with the same --key"
 		}
@@ -164,7 +167,12 @@ func (c *Client) attempt(ctx context.Context, method, path string, body []byte, 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		return &Response{Data: data, ContentType: resp.Header.Get("Content-Type")}, nil
 	}
-	return nil, responseError(resp.StatusCode, data, read)
+	e := responseError(resp.StatusCode, data, read)
+	if !read && (resp.StatusCode == 502 || resp.StatusCode == 503 || resp.StatusCode == 504) {
+		e.Hint = "check the books before running this write again"
+		return nil, &writeAttemptError{e}
+	}
+	return nil, e
 }
 
 func networkError(message string, read bool) *output.Error {
@@ -225,8 +233,7 @@ func responseError(status int, data []byte, read bool) *output.Error {
 	}
 	if json.Unmarshal(data, &payload) == nil && payload.Detail != nil {
 		e.Detail = payload.Detail
-		var message string
-		if json.Unmarshal(payload.Detail, &message) == nil && !(status >= 300 && status < 400) {
+		if message := detailMessage(payload.Detail); message != "" && !(status >= 300 && status < 400) {
 			e.Message = message
 		}
 	}

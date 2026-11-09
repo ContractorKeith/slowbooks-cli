@@ -53,6 +53,23 @@ func (s *Server) readFixture(w http.ResponseWriter, r *http.Request) bool {
 		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
 		return true
 	}
+	if parts[0] == "invoices" || parts[0] == "bills" {
+		filtered := make([]json.RawMessage, 0, len(rows))
+		for _, row := range rows {
+			var obj struct {
+				Status string `json:"status"`
+			}
+			_ = json.Unmarshal(row, &obj)
+			if status := r.URL.Query().Get("status"); status != "" && obj.Status != status {
+				continue
+			}
+			if r.URL.Query().Get("open_only") == "true" && (obj.Status == "paid" || obj.Status == "void") {
+				continue
+			}
+			filtered = append(filtered, row)
+		}
+		rows = filtered
+	}
 	if skip, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil && skip > 0 {
 		rows = rows[min(skip, len(rows)):]
 	}
