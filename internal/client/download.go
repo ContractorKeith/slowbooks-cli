@@ -42,7 +42,10 @@ func (c *Client) Download(ctx context.Context, path string, dst io.Writer) (*Dow
 			output.AsError(err).Retryable = false
 			return result, err
 		}
-		if attempt == 1 || !output.AsError(err).Retryable || ctx.Err() != nil {
+		if ctx.Err() != nil {
+			return result, &output.Error{Code: "network", Message: "download cancelled", Retryable: false}
+		}
+		if attempt == 1 || !output.AsError(err).Retryable {
 			return result, err
 		}
 		if result.Bytes > 0 {

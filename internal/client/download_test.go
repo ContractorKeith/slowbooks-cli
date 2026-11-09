@@ -90,7 +90,7 @@ func TestDownloadRewindsStagedFile(t *testing.T) {
 		hits++
 		if hits == 1 {
 			w.Header().Set("Content-Length", "100")
-			_, _ = io.WriteString(w, "partial")
+			_, _ = io.WriteString(w, "partial body with stale suffix")
 			return
 		}
 		_, _ = io.WriteString(w, "complete")

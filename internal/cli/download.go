@@ -5,7 +5,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"unicode"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
@@ -37,7 +36,7 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 			if err := client.ValidatePathParam(target); err != nil {
 				return err
 			}
-			target = "/api/invoices/" + target + "/pdf"
+			target = "/api/invoices/" + url.PathEscape(target) + "/pdf"
 		}
 		u, err := url.Parse(target)
 		if err != nil {
@@ -83,6 +82,9 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 		if err != nil {
 			return err
 		}
+		if cmd.Context().Err() != nil {
+			return &output.Error{Code: "network", Message: "download cancelled"}
+		}
 		filename := safeFilename(response.Filename)
 		if filename == "" {
 			filename = safeFilename(path.Base(u.Path))
@@ -95,7 +97,7 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 			saved = filename
 		}
 		if staged != nil {
-			saved, err = staged.Save(filename, force)
+			saved, err = staged.Save(cmd.Context(), filename, force)
 			if err != nil {
 				return err
 			}
@@ -110,28 +112,10 @@ func (s *session) downloadCommand(named bool) *cobra.Command {
 	}}
 	cmd.Flags().StringVarP(&destination, "output", "o", "", "Destination file, or - for stdout")
 	cmd.Flags().BoolVar(&force, "force", false, "Overwrite an existing file")
-	cmd.Flags().StringArrayVar(&params, "param", nil, "Path or query parameter k=v (repeatable)")
+	if !named {
+		cmd.Flags().StringArrayVar(&params, "param", nil, "Path or query parameter k=v (repeatable)")
+	}
 	return cmd
-}
-
-// safeFilename treats both platform separators as untrusted and strips hidden,
-// traversal and control sequences from the server-provided basename.
-func safeFilename(name string) string {
-	name = path.Base(strings.ReplaceAll(name, "\\", "/"))
-	name = strings.Map(func(r rune) rune {
-		if unicode.IsControl(r) {
-			return -1
-		}
-		return r
-	}, name)
-	for strings.Contains(name, "..") {
-		name = strings.ReplaceAll(name, "..", "")
-	}
-	name = strings.TrimLeft(name, ". ")
-	if strings.ContainsAny(name, "/\\") {
-		return ""
-	}
-	return name
 }
 
 func (s *session) invoiceDownloadCommands() *cobra.Command {
