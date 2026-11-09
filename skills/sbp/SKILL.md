@@ -56,10 +56,10 @@ Confirm the intended record and amounts from the user's request. Preview a
 write with `--dry-run`, inspect it, then run the same command without that flag.
 
 ```bash
-sbp invoices create --customer 7 --date 2026-11-09 --memo Service --data @invoice.json --dry-run --json
+sbp invoices create --customer 7 --date 2026-11-09 --memo Service --data "@invoice.json" --dry-run --json
 sbp payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run --json
 sbp invoices void 31 --dry-run --json
-sbp ops call POST /api/deposits --data @deposit.json --dry-run --json
+sbp ops call POST /api/deposits --data "@deposit.json" --dry-run --json
 ```
 
 Invoice data is an object containing `lines`, not a bare array. Explicit flags
@@ -102,16 +102,36 @@ Use `--open` for open invoices/bills. `--status` accepts invoices
 Keys must match `[A-Za-z0-9._:-]{1,128}`. Login and writes refuse unknown companies
 with exit 2 and a hint listing available companies.
 
-On Windows PowerShell 5.1, prefer `--data @file` to inline JSON. Save JSON as
+On Windows PowerShell 5.1, prefer `--data "@file"` to inline JSON. Save JSON as
 UTF-8; UTF-8 BOMs are accepted, UTF-16 is unsupported. For downloads use `-o file`
-or `cmd /c "sbp ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
+or `cmd /c "sbp.exe ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
 
 `POST /api/batch-payments` and the payment `/replace` routes do not accept an
 `Idempotency-Key` on the server. Supplying `--key` cannot make these operations
 retry-safe: never re-run them after an uncertain result. Inspect the books and
 resolve what happened before making another payment change.
 
-When the catalog omits a status enum, `--status` warns and passes the value to
-the server. Generic calls such as `sbp api GET /api/invoices --param status=sent`
+When the catalog omits a status enum, verified 2.31.10 bills use
+`draft|unpaid|partial|paid|void`; other operations warn and pass the value through. Generic calls such as `sbp api GET /api/invoices --param status=sent`
 bypass named status validation. A failed company lookup warns and permits login
 or writes; a successful lookup still refuses unknown companies.
+
+In PowerShell, type `sbp.exe` for every command: `sbp` is a built-in alias for
+`Set-PSBreakpoint`. Quote file arguments as `"@file"` to avoid PowerShell
+splatting. For example:
+
+```powershell
+sbp.exe invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
+```
+
+Company selection accepts only the exact served-company `file` from
+`/api/companies`, never its display name, id or database name. Online reads and
+writes refuse unknown files. If the server lists no files (including PostgreSQL),
+selection is unsupported: use `--company=` for its default books. Failed company
+lookups warn and permit the operation.
+
+A supplied `--key` only makes a keyed operation safe to replay. On any unkeyed
+operation it warns that the server ignores the key; never follow a same-key replay
+strategy for invoices, customers, deposits, journal entries or payment voids.
+After a successful write, a jq runtime failure emits the unfiltered success
+envelope, warns on stderr and exits 0. Treat that write as completed.

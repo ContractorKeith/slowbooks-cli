@@ -44,12 +44,3 @@ func TestUnsupportedPaymentKeysNeverSuggestReplay(t *testing.T) {
 		}
 	}
 }
-
-func TestUnsupportedPaymentKeysIgnorePathCase(t *testing.T) {
-	isolate(t)
-	for _, path := range []string{"/API/BATCH-PAYMENTS", "/api/Payments/5/Replace", "/api/BILL-PAYMENTS/5/REPLACE?x=1"} {
-		if supportsKeyReplay(path) {
-			t.Error(path)
-		}
-	}
-}

@@ -100,7 +100,14 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	if op.FileRoute || ((method == "GET" || method == "HEAD") && catalog.IsFile(target.Path)) {
 		return &output.Error{Code: "usage", Message: "file routes require download", Hint: "sbp download " + target.Path}
 	}
-	if (op.Keyed || catalog.IsKeyed(method, target.Path)) && method != "GET" && method != "HEAD" && strings.TrimSpace(opts.key) == "" {
+	keyed := op.Keyed || catalog.IsKeyed(method, target.Path)
+	cl = cl.ForOperation(keyed)
+	if opts.key != "" && !keyed {
+		if err := s.warn("server ignores --key on this unkeyed operation; check the books after an uncertain write"); err != nil {
+			return err
+		}
+	}
+	if keyed && method != "GET" && method != "HEAD" && strings.TrimSpace(opts.key) == "" {
 		return &output.Error{Code: "usage", Message: "this operation requires --key", Hint: "supply --key <payment-key>; reuse the same key when rerunning"}
 	}
 	if opts.prepare != nil {
@@ -124,17 +131,16 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	if opts.dry {
 		return s.w.Success(preview, "Dry run; no request sent", nil)
 	}
-	if method != "GET" && method != "HEAD" {
-		if err := s.checkCompany(cmd, cl, false); err != nil {
-			return err
-		}
-	}
+
 	result, more, err := s.callResult(cmd, cl, method, target, body, opts, op)
 	if err != nil {
 		return err
 	}
 	if opts.render != nil {
 		return opts.render(result, more)
+	}
+	if method != "GET" && method != "HEAD" {
+		return s.w.SuccessWrite(result, method+" "+target.Path, nil)
 	}
 	return s.w.Success(result, method+" "+target.Path, nil)
 }

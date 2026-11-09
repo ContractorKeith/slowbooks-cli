@@ -73,7 +73,7 @@ func TestStatusAndHeaders(t *testing.T) {
 				}
 				if err != nil {
 					e := output.AsError(err)
-					if e.Code != tc.code || e.Retryable != tc.retryable {
+					if e.Code != tc.code || e.Retryable != (tc.retryable && method == "GET") {
 						t.Fatalf("error = %+v", e)
 					}
 					detail, _ := json.Marshal(e.Detail)

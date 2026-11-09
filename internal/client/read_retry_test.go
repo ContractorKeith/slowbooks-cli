@@ -55,7 +55,7 @@ func TestWriteTimeoutKeyAdvice(t *testing.T) {
 			<-r.Context().Done()
 		}))
 		c, _ := New(context.Background(), Options{URL: s.URL, Timeout: time.Second})
-		_, err := c.Do(context.Background(), "POST", "/api/payments", nil, key)
+		_, err := c.ForOperation(true).Do(context.Background(), "POST", "/api/payments", nil, key)
 		s.Close()
 		e := output.AsError(err)
 		if output.ExitCode(err) != 8 || e.Retryable != (key != "") || calls.Load() != 1 {

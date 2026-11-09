@@ -47,15 +47,15 @@ func TestAuthLifecycleAndRoleHeaders(t *testing.T) {
 			t.Fatal(code, out)
 		}
 	}
-	code, out, _ := invoke(t, "", "auth", "status", "--profile", "readonly", "--company", "other")
-	if code != 0 || !strings.Contains(out, `"company":"other"`) {
+	code, out, _ := invoke(t, "", "auth", "status", "--profile", "readonly", "--company", "acme")
+	if code != 0 || !strings.Contains(out, `"company":"acme"`) {
 		t.Fatal(code, out)
 	}
 	reqs := fake.Requests()
 	for _, r := range reqs[len(reqs)-2:] {
 		expected := ""
 		if r.URI == "/api/system" {
-			expected = "other"
+			expected = "acme"
 		}
 		if r.Header.Get("X-SlowBooks-Company") != expected {
 			t.Fatal(r)

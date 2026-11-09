@@ -128,11 +128,30 @@ for verb in named generic; do
     "$run/sbp" api POST /api/invoices --company bogus --data "$invoice_body" > "$run/bogus-write.json" || status=$?
   fi
   test "$status" -eq 2
-  python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="usage" and "available companies" in e["hint"]' "$run/bogus-write.json"
+  python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="usage" and e["message"]=="this server does not support company selection"' "$run/bogus-write.json"
 done
 "$run/sbp" invoices list --all > "$run/company-after.json"
 python3 -c 'import json,sys; a,b=[json.load(open(p))["data"] for p in sys.argv[1:]]; assert len(a)==len(b)' "$run/m3-invoices.json" "$run/company-after.json"
 echo 'e2e: skeptic --open, duplicate sentence and bogus company guards passed'
+# Round 2: Postgres has no served-company files; names and database names cannot route.
+for company in 'CLI E2E' second; do
+  status=0
+  "$run/sbp" api POST /api/invoices --company "$company" --data "$invoice_body" > "$run/r2-company.json" || status=$?
+  test "$status" -eq 2
+  status=0
+  "$run/sbp" customers list --company "$company" > "$run/r2-company-read.json" || status=$?
+  test "$status" -eq 2
+  python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["error"]["message"]=="this server does not support company selection"' "$run/r2-company-read.json"
+done
+status=0
+"$run/sbp" bills list --status open > "$run/r2-status.json" || status=$?
+test "$status" -eq 2
+python3 -c 'import json,sys; assert "unpaid" in json.load(open(sys.argv[1]))["error"]["message"]' "$run/r2-status.json"
+"$run/sbp" api POST /api/customers --key ignored-key --data '{"name":"Silver Reed Agency"}' > "$run/r2-key.json" 2> "$run/r2-key.err"
+python3 -c 'import sys; assert "server ignores --key" in open(sys.argv[1]).read()' "$run/r2-key.err"
+"$run/sbp" api POST /api/customers --data '{"name":"Juniper Harbor Clinic"}' --jq 'error("filter failed")' > "$run/r2-jq.json" 2> "$run/r2-jq.err"
+python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["ok"] and d["data"]["id"]; assert "--jq failed after successful write" in open(sys.argv[2]).read()' "$run/r2-jq.json" "$run/r2-jq.err"
+echo 'e2e: R2 unsupported company selection, bill statuses, ignored key and successful write/jq failure passed'
 echo 'e2e: M3 customer/invoice list/show, reports, search and jq passed'
 # M4 real invoice PDF and CSV streaming.
 "$run/sbp" ops call POST /api/customers --data '{"name":"M4 Download Customer"}' > "$run/m4-customer.json"

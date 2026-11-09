@@ -27,6 +27,7 @@ type Writer struct {
 	ctx           context.Context
 	timeout       time.Duration
 	jqMemoryLimit uint64
+	writeResult   *writeResult
 }
 
 // New detects a terminal only for actual file descriptors.

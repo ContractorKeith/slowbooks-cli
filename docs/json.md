@@ -10,7 +10,11 @@ successful `data` value as JSON. Errors keep their full envelope even with `--qu
 no color. `--jq <expr>` filters the full success envelope by default (for example,
 `--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
 (`--quiet --jq '.[].id'`). Each result is JSON on its own line, including quoted
-strings; `empty` emits nothing. jq parse, compile and evaluation errors exit 2.
+strings; `empty` emits nothing. jq parse and compile errors exit 2. Runtime errors
+on reads and dry-runs also exit 2. After a successful server write, a runtime jq
+failure instead warns on stderr, prints the full unfiltered success envelope
+(even with `--quiet`), and exits 0. Write projections are buffered, so no partial
+projection precedes that envelope.
 Parse and compile errors are checked before requests or mutations. Errors always
 retain their full envelope, bypassing jq; a streaming evaluation error may follow
 already emitted results. Evaluation uses the command context and the configured
@@ -20,8 +24,10 @@ samples process heap objects every 50 ms and cancels when growth from the
 pre-evaluation baseline exceeds 512 MiB
 (exit 2, `--jq used more than 512 MiB`). The already-loaded response is excluded from this sampled growth budget;
 so allocation bursts may briefly exceed it. If evaluation has not stopped within
-250 ms of cancellation, the CLI emits the error envelope and exits 2.
-Cancellation, timeout, and cap failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
+250 ms of cancellation, the CLI emits the error envelope and exits 2. After a
+known successful write, this forced-exit path emits the unfiltered success and
+warning and exits 0 instead.
+Cancellation, timeout, and cap failures follow the same read/write rules above. Shared call decoding preserves JSON numbers through named/generic reads, quiet
 output, and tables. jq receives exact integers, including IDs beyond 2^53;
 jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 
@@ -43,11 +49,13 @@ is a string, an object with `message`, or an array whose first item has
 `message` or `msg` (in that order). Writes are never automatically retried. Network failures and HTTP 502/503/504 on unkeyed
 writes have
 `retryable:false` and a hint to check the books before running the write again.
-Network failures and HTTP 502/503/504 on writes carrying `--key` have `retryable:true` and the hint
-`rerun with the same --key`. The known exceptions are `POST /api/batch-payments`
-and payment `/replace` routes: the server ignores keys on them, so they retain
-`retryable:false` and check-the-books advice even when `--key` is supplied.
-Never re-run these operations after an uncertain result. Reads retry once on
+Network failures and HTTP 502/503/504 on keyed operations carrying `--key` have
+`retryable:true` and `rerun with the same --key` advice. Keyed operations are the
+four payment routes in PLAN §5 or operations declaring an Idempotency-Key header
+in the catalog. Supplying `--key` on any other operation warns that the server
+ignores it; an uncertain unkeyed write stays non-retryable with check-the-books
+advice. This includes batch payments, replacements, voids, invoices and customers.
+Reads retry once on
 network failure or HTTP 502/503/504. Only network errors and HTTP 502/503/504 are marked
 retryable for reads; HTTP 500/501 are not. Timeout is 120 seconds by default, range
 1–3600, per attempt, and also bounds DNS lookup. Reads may take two attempts. Responses larger than 64 MiB fail with exit 8
@@ -177,16 +185,19 @@ list requests also honor a declared maximum and page when necessary to satisfy
 `--limit`. Operations without a limit parameter receive none.
 
 TTY tables use the named command's columns, or up to five scalar fields in
-alphabetical order for generic results. All keys, headers, and cells escape
-control characters. Padding uses a small local display-width function covering
+alphabetical order for generic results. Every human TTY path, including scalars,
+scalar arrays, nested values, keys, headers and cells, escapes C0/C1 controls and
+Unicode format characters (category Cf), including bidi controls. Diagnostics use
+the same escaper. Padding uses a small local display-width function covering
 common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
 complex joined emoji sequences and terminal-specific widths may vary.
 
 Invoices and bills expose `--open`, mapping to declared `open_only=true`, and
 `--status`, validated locally against catalog enums. The pinned invoice response
 declares `draft|sent|partial|paid|void`; its query omits that enum. Bill schemas
-omit it entirely, so values pass through with a stderr note when no enum is
-declared. A value outside a declared enum exits 2 before the list request.
+omit it entirely, so verified 2.31.10 bills fall back to
+`draft|unpaid|partial|paid|void`. Other missing enums pass through with a stderr
+note. A value outside a declared enum exits 2 before the list request.
 Generic `api`/`ops call --param status=value` bypass named status validation. The pinned server has no `since` parameter.
 `reports list` discovers direct JSON report operations from the catalog, since
 there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
@@ -296,9 +307,13 @@ directories include a short hash of the server URL and company. If an environmen
 URL differs from the selected profile and no environment token file is supplied,
 commands exit 3 with a `SLOWBOOKS_TOKEN_FILE` hint before sending its token.
 Company and key header values are validated locally (exit 2), including dry-run.
-Login and online writes validate non-empty company selections against
-`/api/companies`. A successful lookup refuses unknown selections; failed lookups
-warn `could not verify company X: <reason>` and allow login/writes to proceed.
-Doctor always checks the list and fails its companies row for lookup errors or
-unknown selections. One company lookup is cached in memory per invocation. Offline
+Online reads, reports, downloads and writes validate non-empty company selections
+against `/api/companies`; login validates before saving the profile. Only a served
+company's exact `file` is accepted; display names, ids and database names are not
+routing identifiers. If no row has a `file`, selection exits 2 with `this server
+does not support company selection`. Use `--company=` to clear a stored or
+environment selection and use the default company (including PostgreSQL servers).
+A successful lookup refuses unknown files. A failed lookup warns `could not verify
+company X: <reason>` and permits the operation; doctor still fails its companies
+diagnostic row for lookup errors, unsupported selection or unknown files. One company lookup is cached in memory per invocation. Offline
 dry-run makes no HTTP requests and cannot verify company membership.
