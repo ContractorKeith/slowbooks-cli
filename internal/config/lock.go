@@ -47,10 +47,17 @@ func fileError(action, path string, cause error) error {
 	if errors.As(cause, &typed) {
 		return typed
 	}
+	if fileInUse(path, cause) {
+		return inUseError(path)
+	}
 	// Retain the OS reason in a typed error without leaking credential content.
 	var pathErr *os.PathError
 	if errors.As(cause, &pathErr) {
 		cause = pathErr.Err
 	}
 	return &output.Error{Code: "auth", Message: "cannot " + action + ": " + path + ": " + cause.Error(), Hint: "check the path and permissions"}
+}
+
+func inUseError(path string) error {
+	return &output.Error{Code: "auth", Message: "in use by another program: " + path, Hint: "close programs using " + path + " and retry"}
 }

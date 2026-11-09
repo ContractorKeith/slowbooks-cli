@@ -115,7 +115,8 @@ func Logout(name string) error {
 	if e = save(s); e != nil {
 		return e
 	}
-	if managedToken(d, name, p.TokenFile) && !sharedToken(s, name, d, managed) {
+	_, shared := sharedToken(s, name, d, managed)
+	if managedToken(d, name, p.TokenFile) && !shared {
 		if e = os.Remove(managed); e != nil && !os.IsNotExist(e) {
 			if rollbackErr := save(before); rollbackErr != nil {
 				return rollbackErr

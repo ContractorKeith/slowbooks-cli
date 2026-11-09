@@ -10,9 +10,16 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-// Doctor checks data-read grants, including inherited ACEs, without claiming
-// that synthetic Windows mode bits enforce Unix-style token privacy.
+// Check read and permission-control grants, including inherited ACEs. Windows
+// synthetic mode bits do not enforce Unix-style token privacy.
 func tokenPermissions(path string, _ os.FileMode) (string, error) {
+	supported, err := persistentACLs(path)
+	if err != nil {
+		return "", aclInspectError(path, err)
+	}
+	if !supported {
+		return path + "; ACLs unsupported on this filesystem", nil
+	}
 	sd, err := windows.GetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION|windows.DACL_SECURITY_INFORMATION)
 	if err != nil {
 		return "", aclInspectError(path, err)
@@ -41,15 +48,15 @@ func tokenPermissions(path string, _ os.FileMode) (string, error) {
 			if ace.Header.AceType != windows.ACCESS_ALLOWED_ACE_TYPE {
 				return "", aclInspectError(path, fmt.Errorf("unsupported DACL ACE type %d", ace.Header.AceType))
 			}
-			const readMask = windows.FILE_READ_DATA | windows.GENERIC_READ | windows.GENERIC_ALL
-			if uint32(ace.Mask)&readMask == 0 {
+			const unsafeMask = windows.FILE_READ_DATA | windows.GENERIC_READ | windows.GENERIC_ALL | windows.WRITE_DAC | windows.WRITE_OWNER
+			if uint32(ace.Mask)&unsafeMask == 0 {
 				continue
 			}
 			sid, err := allowedAceSID(ace)
 			if err != nil {
 				return "", aclInspectError(path, err)
 			}
-			if sid.Equals(owner) || sid.IsWellKnown(windows.WinLocalSystemSid) || sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) || sid.IsWellKnown(windows.WinCreatorOwnerRightsSid) {
+			if trustedTokenPrincipal(sid, owner) {
 				continue
 			}
 			value := sid.String()
@@ -64,9 +71,9 @@ func tokenPermissions(path string, _ os.FileMode) (string, error) {
 		for _, sid := range bad {
 			hint += ` "*` + sid + `"`
 		}
-		return "", &output.Error{Code: "auth", Message: "token DACL grants read access to " + strings.Join(bad, ", ") + ": " + path, Hint: hint}
+		return "", &output.Error{Code: "auth", Message: "token DACL grants read or ownership/permission control to " + strings.Join(bad, ", ") + ": " + path, Hint: hint}
 	}
-	return path + "; DACL checked: read grants limited to owner, SYSTEM and Administrators", nil
+	return path + "; DACL checked: read and permission-control grants limited to owner, SYSTEM and Administrators", nil
 }
 
 // GetAce returns native variable-length memory. Bound SID access by AceSize
@@ -89,4 +96,8 @@ func allowedAceSID(ace *windows.ACCESS_ALLOWED_ACE) (*windows.SID, error) {
 
 func aclInspectError(path string, err error) error {
 	return &output.Error{Code: "auth", Message: "cannot verify token DACL: " + path + ": " + err.Error(), Hint: `inspect and restrict read access with icacls "` + path + `"`}
+}
+
+func trustedTokenPrincipal(sid, owner *windows.SID) bool {
+	return sid.Equals(owner) || sid.IsWellKnown(windows.WinLocalSystemSid) || sid.IsWellKnown(windows.WinBuiltinAdministratorsSid) || sid.IsWellKnown(windows.WinCreatorOwnerRightsSid) || sid.IsWellKnown(windows.WinCreatorOwnerSid)
 }

@@ -84,7 +84,7 @@ func TestRound2WindowsRenameBusyDiagnostic(t *testing.T) {
 	start := time.Now()
 	e := SaveLogin("a", Profile{}, "sbp_new")
 	elapsed := time.Since(start)
-	if output.ExitCode(e) != 3 || !strings.Contains(e.Error(), "in use by another program: "+path) {
+	if output.ExitCode(e) != 3 || output.AsError(e).Code != "auth" || !strings.Contains(e.Error(), "in use by another program: "+path) {
 		t.Fatal(e)
 	}
 	if elapsed < 1500*time.Millisecond || elapsed > 4*time.Second {

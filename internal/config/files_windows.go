@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 	"golang.org/x/sys/windows"
 )
 
@@ -24,7 +23,7 @@ func renameFile(old, target string) error {
 			if !errors.Is(err, windows.ERROR_SHARING_VIOLATION) && !fileHeld(old) && !fileHeld(target) {
 				return err
 			}
-			return &output.Error{Code: "auth", Message: "in use by another program: " + target, Hint: "close programs using " + target + " and retry"}
+			return inUseError(target)
 		}
 		time.Sleep(min(delay, remaining))
 		delay = min(delay*2, 100*time.Millisecond)
@@ -34,19 +33,29 @@ func renameFile(old, target string) error {
 // Root.Rename preserves share-delete readers on NTFS. Unsupported filesystems
 // use Go's MoveFileEx replacement instead, without unlinking the destination.
 func replaceFile(old, target string) error {
-	root, err := os.OpenRoot(filepath.Dir(target))
-	if err == nil {
-		defer root.Close()
-		var source string
-		source, err = filepath.Rel(filepath.Dir(target), old)
-		if err == nil {
-			err = root.Rename(source, filepath.Base(target))
-		}
-	}
+	return replaceFileUsing(old, target, renamePOSIX)
+}
+
+// Keep the fallback decision injectable without changing process-global state.
+func replaceFileUsing(old, target string, posix func(string, string) error) error {
+	err := posix(old, target)
 	if errors.Is(err, windows.ERROR_INVALID_PARAMETER) || errors.Is(err, windows.ERROR_NOT_SUPPORTED) {
 		return os.Rename(old, target)
 	}
 	return err
+}
+
+func renamePOSIX(old, target string) error {
+	root, err := os.OpenRoot(filepath.Dir(target))
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	source, err := filepath.Rel(filepath.Dir(target), old)
+	if err != nil {
+		return err
+	}
+	return root.Rename(source, filepath.Base(target))
 }
 
 // Access denied also covers read-only files and ACLs. Confirm a live competing
@@ -62,4 +71,8 @@ func fileHeld(path string) bool {
 		_ = windows.CloseHandle(h)
 	}
 	return errors.Is(err, windows.ERROR_SHARING_VIOLATION)
+}
+
+func fileInUse(path string, err error) bool {
+	return errors.Is(err, windows.ERROR_SHARING_VIOLATION) || (errors.Is(err, windows.ERROR_ACCESS_DENIED) && fileHeld(path))
 }

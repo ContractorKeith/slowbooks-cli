@@ -22,6 +22,10 @@ func TestRound2RecoveryReplacesManagedToken(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	d, _ := Dir()
+	if !strings.Contains(p.RecoveryNotice, filepath.Join(d, "tokens", "default.token")) {
+		t.Fatal("recovery notice omits replaced token", p.RecoveryNotice)
+	}
 	if !strings.Contains(p.RecoveryNotice, "profiles.json.corrupt-") {
 		t.Fatal("missing recovery notice")
 	}
@@ -63,14 +67,26 @@ func TestRound2ReloginRefusesAliasedToken(t *testing.T) {
 		t.Fatal(e)
 	}
 	_, _, e := LoginProfile(Flags{Profile: "Acme", ProfileSet: true})
-	if output.ExitCode(e) != 2 || !strings.Contains(output.AsError(e).Hint, "logout") {
+	if output.ExitCode(e) != 2 || !strings.Contains(output.AsError(e).Hint, "logout --profile acme") {
 		t.Fatal("login resolution accepted token alias", e)
 	}
 	e = SaveLogin("Acme", Profile{}, "sbp_replacement")
-	if output.ExitCode(e) != 2 || !strings.Contains(output.AsError(e).Hint, "logout") {
+	if output.ExitCode(e) != 2 || !strings.Contains(output.AsError(e).Hint, "logout --profile acme") {
 		t.Fatal("token commit accepted alias", e)
 	}
 	if b, e := os.ReadFile(second); e != nil || string(b) != "sbp_original" {
 		t.Fatal("changed other profile credential", e)
+	}
+}
+
+func TestReviewRecoveryWithoutExistingToken(t *testing.T) {
+	isolate(t)
+	path, _ := Path()
+	if e := os.WriteFile(path, []byte("{"), 0600); e != nil {
+		t.Fatal(e)
+	}
+	_, p, e := LoginProfile(Flags{})
+	if e != nil || !strings.Contains(p.RecoveryNotice, "profiles.json.corrupt-") || strings.Contains(p.RecoveryNotice, "replace managed token") {
+		t.Fatal(p.RecoveryNotice, e)
 	}
 }

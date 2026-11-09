@@ -113,9 +113,9 @@ New profile names are unique ignoring ASCII case; a conflicting new login exits 
 and names the existing profile. Exact existing names can be reauthenticated even
 when a legacy store contains case-colliding names, provided their token paths do
 not alias. A re-login whose recorded or target token aliases another profile
-exits 2 with a hint to log out a colliding profile first. New managed token paths and
-catalog profile directories use lowercase names; legacy managed token paths remain usable. Relative profile
-`token_file` paths resolve against the config directory. Login refuses to replace
+exits 2 with a hint naming the other, colliding profile to log out first. New
+managed token paths and catalog profile directories use lowercase names; legacy
+managed token paths remain usable. Relative profile `token_file` paths resolve against the config directory. Login refuses to replace
 an existing token not managed by the selected profile (exit 2, naming the file),
 and logout preserves external tokens. Logout considers only the recorded token
 path and preserves files still referenced by another profile, including filesystem
@@ -125,19 +125,27 @@ UTF-8 BOMs are accepted in profiles and token files. UTF-16 token files are refu
 with a UTF-8/ASCII hint. Login moves malformed or empty profiles aside to
 `profiles.json.corrupt-<UTC timestamp>` and reports the backup path on stderr
 before starting a fresh store. During that recovery, an existing token at the
-selected profile name's managed path is replaced; ordinary login still refuses
+selected profile name's managed path is replaced, and the recovery notice also
+names that token path before verification; ordinary login still refuses
 unrecorded token files. Other commands name the file and the login recovery
 command. Only regular profiles files can be recovered: symlinks, FIFOs and other
 non-regular entries are refused with exit 3 and left untouched. On Windows, config
 readers share deletion, and each replacement retries sharing/access-denied errors
 for about two seconds. A confirmed sharing conflict names the file as
-`in use by another program`; other access errors keep their original reason.
+`in use by another program` with `auth` (exit 3) for config/token files, including
+read and replacement failures. Held download destinations use `usage` (exit 2)
+with a close-and-retry hint. Other access errors keep their original reason.
 Filesystems rejecting POSIX replacement use a MoveFileEx replacement fallback.
-Doctor reads the token DACL instead of trusting synthetic Unix mode bits. Read
-grants outside the owner, SYSTEM and Administrators fail its token row (exit 3)
-with an `icacls` repair hint. Inherited grants are checked; inherit-only entries
-and metadata-only grants do not grant token-data reads. Unreadable or unsupported
-DACLs also fail the row rather than being reported as private.
+Doctor first probes `FILE_PERSISTENT_ACLS` on the token's filesystem. Where ACLs
+are unsupported, the token row reports `ACLs unsupported on this filesystem` as
+non-fatal detail, without an `icacls` hint or a claim that the file is private.
+Otherwise doctor reads the token DACL instead of trusting synthetic Unix mode
+bits. Read, `WRITE_DAC` and `WRITE_OWNER` grants outside the owner, SYSTEM and
+Administrators fail its token row (exit 3) with an `icacls` repair hint. CREATOR
+OWNER and OWNER RIGHTS are treated as the owner. Inherited grants are checked;
+inherit-only entries and metadata-only grants do not grant token-data reads or
+permission control. Unreadable or unsupported DACLs also fail the row rather
+than being reported as private.
 
 Tokens are at most 4096 bytes, excluding an optional UTF-8 BOM and LF or CRLF.
 Non-regular files are refused before reading; Unix opens are nonblocking to guard against

@@ -33,9 +33,9 @@ func managedToken(dir, name, path string) bool {
 	return filepath.Dir(path) == filepath.Join(dir, "tokens") && strings.EqualFold(filepath.Base(path), name+".token")
 }
 
-// Preserve a recorded path while any other profile still relies on it, including
-// aliases on case-insensitive filesystems and symlinks to the same file.
-func sharedToken(s Store, name, dir, path string) bool {
+// Name another profile relying on this file, including aliases on
+// case-insensitive filesystems and symlinks to the same file.
+func sharedToken(s Store, name, dir, path string) (string, bool) {
 	info, _ := os.Stat(path)
 	for other, p := range s.Profiles {
 		if other == name || p.TokenFile == "" {
@@ -43,21 +43,22 @@ func sharedToken(s Store, name, dir, path string) bool {
 		}
 		recorded := tokenPath(dir, p.TokenFile)
 		if recorded == path {
-			return true
+			return other, true
 		}
 		if info != nil {
 			if otherInfo, e := os.Stat(recorded); e == nil && os.SameFile(info, otherInfo) {
-				return true
+				return other, true
 			}
 		}
 	}
-	return false
+	return "", false
 }
 
 func refuseSharedLogin(s Store, name, dir, path string) error {
-	if !sharedToken(s, name, dir, path) {
+	other, shared := sharedToken(s, name, dir, path)
+	if !shared {
 		return nil
 	}
 	return &output.Error{Code: "usage", Message: "token file is shared with another profile: " + path,
-		Hint: "log out a colliding profile (sbp auth logout --profile " + name + "), then re-login the remaining profile"}
+		Hint: "log out the colliding profile (sbp auth logout --profile " + other + "), then re-login the remaining profile"}
 }
