@@ -14,7 +14,7 @@ func TestDownloadCleansOnlyOldStagingFiles(t *testing.T) {
 	other := filepath.Join(dir, "unrelated")
 	oldTime := time.Now().Add(-2 * time.Hour)
 	for _, path := range []string{old, fresh, other} {
-		if err := os.WriteFile(path, []byte("keep bytes"), 0600); err != nil {
+		if err := writeOwnedDownloadFixture(path, []byte("keep bytes")); err != nil {
 			t.Fatal(err)
 		}
 		if path != fresh {
