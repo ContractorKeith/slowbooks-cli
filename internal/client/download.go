@@ -75,7 +75,7 @@ func (c *Client) downloadAttempt(ctx context.Context, path string, dst io.Writer
 	if c.options.Company != "" {
 		req.Header.Set("X-SlowBooks-Company", c.options.Company)
 	}
-	req.Header.Set("User-Agent", "sbp/"+c.options.Version)
+	req.Header.Set("User-Agent", "slowbooks/"+c.options.Version)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return result, networkError("request failed or timed out", true)

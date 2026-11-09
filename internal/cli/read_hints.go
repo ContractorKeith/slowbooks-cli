@@ -13,7 +13,7 @@ func (s *session) readDownloadCommand(row commands.Row) *cobra.Command {
 	cmd := s.downloadCommand(&row)
 	run := cmd.RunE
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		row.Next = []string{"sbp " + strings.Fields(row.Name)[0] + " show " + args[0]}
+		row.Next = []string{"slowbooks " + strings.Fields(row.Name)[0] + " show " + args[0]}
 		return run(cmd, args)
 	}
 	return cmd

@@ -133,7 +133,7 @@ func (c *Client) attempt(ctx context.Context, method, path string, body []byte, 
 	if key != "" {
 		req.Header.Set("Idempotency-Key", key)
 	}
-	req.Header.Set("User-Agent", "sbp/"+c.options.Version)
+	req.Header.Set("User-Agent", "slowbooks/"+c.options.Version)
 	if len(body) > 0 {
 		req.Header.Set("Content-Type", "application/json")
 	}

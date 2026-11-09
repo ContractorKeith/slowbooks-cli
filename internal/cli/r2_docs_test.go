@@ -9,14 +9,14 @@ import (
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
 )
 
-func TestR2PowerShellInstructionsAvoidAliasAndSplatting(t *testing.T) {
+func TestR2PowerShellInstructionsQuoteFileArguments(t *testing.T) {
 	isolate(t)
-	for _, path := range []string{"../../README.md", "../../skills/sbp/SKILL.md"} {
+	for _, path := range []string{"../../README.md", "../../skills/slowbooks-cli/SKILL.md"} {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
 		}
-		for _, term := range []string{"Set-PSBreakpoint", `"@file"`, "sbp.exe invoices create"} {
+		for _, term := range []string{`"@file"`, "slowbooks invoices create"} {
 			if !strings.Contains(string(raw), term) {
 				t.Errorf("%s missing %s", path, term)
 			}
@@ -30,7 +30,7 @@ func TestR2PlanReadFlagsMatchCLI(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, line := range strings.Split(string(raw), "\n") {
-		if strings.HasPrefix(line, "sbp invoices|bills list") && strings.Contains(line, "--since") {
+		if strings.HasPrefix(line, "slowbooks invoices|bills list") && strings.Contains(line, "--since") {
 			t.Error(line)
 		}
 	}

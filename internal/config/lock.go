@@ -36,7 +36,7 @@ func lockStore() (func(), error) {
 		}
 		if time.Now().After(deadline) {
 			_ = f.Close()
-			return nil, &output.Error{Code: "auth", Message: "config is busy: " + path, Hint: "retry after the other sbp process finishes"}
+			return nil, &output.Error{Code: "auth", Message: "config is busy: " + path, Hint: "retry after the other slowbooks process finishes"}
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

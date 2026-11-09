@@ -52,7 +52,7 @@ func (s *session) checkCompany(cmd *cobra.Command, cl *client.Client, always boo
 func (s *session) companyRecoveryHint() string {
 	hint := "use --company= for this invocation; unset SLOWBOOKS_COMPANY to clear an environment selection"
 	if conn, err := config.Resolve(s.flags); err == nil && conn.Profile != "" {
-		hint += "; clear the saved profile company with sbp auth login --profile " + conn.Profile + " --company="
+		hint += "; clear the saved profile company with slowbooks auth login --profile " + conn.Profile + " --company="
 	}
 	return hint
 }

@@ -11,7 +11,7 @@ import (
 
 func TestSweepPreservesSharedReader(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".sbp-download-88888")
+	path := filepath.Join(dir, ".slowbooks-download-88888")
 	if err := writeOwnedDownloadFixture(path, []byte("open")); err != nil {
 		t.Fatal(err)
 	}

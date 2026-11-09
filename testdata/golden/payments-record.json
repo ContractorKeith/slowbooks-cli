@@ -1,1 +1,1 @@
-{"ok":true,"data":{"amount":"25.00","customer_id":1,"date":"2026-01-01","id":1},"summary":"payments record","next":["sbp payments show 1"]}
+{"ok":true,"data":{"amount":"25.00","customer_id":1,"date":"2026-01-01","id":1},"summary":"payments record","next":["slowbooks payments show 1"]}

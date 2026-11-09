@@ -38,7 +38,7 @@ jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 Success (all fields are always present; `next` is an array, including when empty):
 
 ```json
-{"ok":true,"data":{"version":"dev","commit":"unknown","verified_sbp":["2.31.10"]},"summary":"sbp dev","next":[]}
+{"ok":true,"data":{"version":"dev","commit":"unknown","verified_sbp":["2.31.10"]},"summary":"slowbooks dev","next":[]}
 ```
 
 Error (all error fields are always present):
@@ -171,11 +171,11 @@ failures warn on stderr and commands continue using the fetched catalog.
 
 Dry-run returns `{method,url,headers,body}` with Authorization redacted. It uses
 only the existing catalog cache and sends no HTTP requests, including discovery.
-With no cached version marker it exits 2 and hints to run `sbp ops find <words>`
+With no cached version marker it exits 2 and hints to run `slowbooks ops find <words>`
 first. An unreadable or corrupt offline cache exits 1.
 Unknown `ops call` operations exit 2; `api` permits them with a stderr warning.
 File routes are GET/HEAD operations identified by their path or declared non-JSON
-success media types; they exit 2 with a `sbp download <path>` hint. Writes on
+success media types; they exit 2 with a `slowbooks download <path>` hint. Writes on
 paths containing file-related words remain callable. Keyed writes without `--key`
 exit 2. Request data accepts inline JSON, `@file`, or `-` for stdin. UTF-8 BOMs are
 accepted; UTF-16 input exits 2 with a save-as-UTF-8 hint. Repeated
@@ -233,8 +233,8 @@ undeclared `--param` names. The generic `api`/`ops call` layer remains permissiv
 Search sends the query as `q`, returns its grouped response unchanged, and has
 no `--limit` or `--all` flags.
 
-Downloads use `sbp download <path> [-o file|-] [--param k=v]... [--force]`
-or `sbp invoices pdf <id> [-o file|-] [--force]`. Only generic `download` accepts
+Downloads use `slowbooks download <path> [-o file|-] [--param k=v]... [--force]`
+or `slowbooks invoices pdf <id> [-o file|-] [--force]`. Only generic `download` accepts
 `--param`; invoice IDs are single path segments and cannot include `?` or `#`.
 Success data contains `path`, `bytes`, `content_type`, and the sanitized server `filename`.
 The server's RFC 6266 filename (including `filename*`) takes precedence; missing
@@ -267,9 +267,9 @@ rewound: after any bytes have been emitted, an interrupted stream exits 8 withou
 replaying bytes and is marked non-retryable. Consumers must discard that partial
 stream when the command fails.
 
-Before staging a download, sbp considers only regular files whose basenames match
-`^\.sbp-download-[0-9]+$`, the numeric shape produced by `os.CreateTemp`. A user
-file such as `.sbp-download-keep.pdf` is never a cleanup candidate. Candidates must
+Before staging a download, slowbooks considers only regular files whose basenames match
+`^\.slowbooks-download-[0-9]+$`, the numeric shape produced by `os.CreateTemp`. A user
+file such as `.slowbooks-download-keep.pdf` is never a cleanup candidate. Candidates must
 be older than 24 hours and owned by the current user. Cleanup preserves the
 requested output file, fresh files, symlinks and other owners. Windows candidates
 must open with share mode zero; Unix candidates must admit a non-blocking exclusive
@@ -310,21 +310,11 @@ name/type/default/required, `operation` where applicable, `access`
 (read/write/dynamic), `keyed`, `file_output`, examples and next hints.
 `required_fields` describes required write body fields: they can come from
 flags or `--data`, so the individual flags are not unconditionally required.
-`reports run` describes a path template; the manifest expands it into the
-verified concrete JSON report operations. `reports list` reads the catalog.
+`reports run` describes a path template. `reports list` reads the catalog.
 Generic `api` and `ops call` have dynamic access and key requirements based on
 the selected operation; consult `ops describe` before calling them.
 
-`commands --manifest` emits a raw marketplace `plugin.json`, without an envelope
-or jq/quiet transformation. `--checksums SHA256SUMS` requires a valid checksum
-for all six release archives; without it, download hashes are placeholder zeros.
-Do not use placeholder hashes to verify a download. Tagged build versions have
-the leading `v` removed. Only stable `x.y.z` build versions are accepted;
-prerelease, build-metadata and unversioned development builds exit 2. The local
-release dry run injects `v0.0.0`. Report paths can be regenerated with
-`go test ./internal/commands -run '^TestReportsEmbedded$' -update`.
-
-Release `version` output omits the leading `v`, matching the plugin manifest.
+Release `version` output omits the leading `v`.
 Named PDF and write hints use the actual record ID. Unknown record placeholders
 are omitted. Environment-only catalog cache
 directories include a short hash of the server URL and company. If an environment
@@ -338,7 +328,7 @@ routing identifiers. If no row has a `file`, selection exits 2 with `this server
 does not support company selection`. Use `--company=` to clear a stored or
 environment selection and use the default company (including PostgreSQL servers).
 For persistent recovery, unset `SLOWBOOKS_COMPANY`, or clear the selected saved
-profile with `sbp auth login --profile <profile> --company=` and enter its token.
+profile with `slowbooks auth login --profile <profile> --company=` and enter its token.
 A successful lookup refuses unknown files. A failed lookup warns `could not verify
 company X: <reason>` and permits the operation; doctor still fails its companies
 diagnostic row for lookup errors, unsupported selection or unknown files. One company lookup is cached in memory per invocation. Offline

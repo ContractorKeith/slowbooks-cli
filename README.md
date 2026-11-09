@@ -1,20 +1,20 @@
 # slowbooks-cli
 
-`sbp` puts SlowBooks Pro in your shell: bookkeeping reads and writes, reports,
+`slowbooks` puts SlowBooks Pro in your shell: bookkeeping reads and writes, reports,
 PDFs and exports, with JSON for scripts and agents. One Go binary, no runtime.
 Connect it to a running SlowBooks Pro server with an API token.
 
 Download the archive for your OS and architecture from
 [Releases](https://github.com/ContractorKeith/slowbooks-cli/releases), verify it
-against `SHA256SUMS`, extract it, and put `sbp` (`sbp.exe` on Windows) on your
+against `SHA256SUMS`, extract it, and put `slowbooks` (`slowbooks.exe` on Windows) on your
 PATH. Archives cover Linux, macOS and Windows on x64 and arm64.
 
 On macOS, a browser download may be quarantined. After extracting, run
-`xattr -d com.apple.quarantine sbp` before starting the binary. Downloads made
+`xattr -d com.apple.quarantine slowbooks` before starting the binary. Downloads made
 with `gh release download` or `curl` are unaffected.
 
 On Windows PowerShell 5.1, save downloads with `-o file`, or preserve raw stdout
-with `cmd /c "sbp.exe ... -o - > file"`; PowerShell's `>` re-encodes bytes. Prefer
+with `cmd /c "slowbooks.exe ... -o - > file"`; PowerShell's `>` re-encodes bytes. Prefer
 `--data "@file"` over inline JSON, since PowerShell 5.1 changes inline quoting.
 Save JSON files as UTF-8 (a UTF-8 BOM is accepted; UTF-16 is unsupported).
 
@@ -23,21 +23,21 @@ require repository access (`go install` also needs Git credentials). Building
 from a clone you already have works now:
 
 ```bash
-go build -o sbp ./cmd/sbp
+go build -o slowbooks ./cmd/slowbooks
 ```
 
 With repository access, you can also install with Go:
 
 ```bash
-go install github.com/ContractorKeith/slowbooks-cli/cmd/sbp@latest
+go install github.com/ContractorKeith/slowbooks-cli/cmd/slowbooks@latest
 ```
 
 Create a token in SlowBooks Pro Settings → API tokens, then log in and paste
 it at the hidden prompt:
 
 ```bash
-sbp auth login --url https://your-server.example
-sbp doctor
+slowbooks auth login --url https://your-server.example
+slowbooks doctor
 ```
 
 An existing Switchboard connection also works: set `SLOWBOOKS_URL` and
@@ -48,9 +48,9 @@ without served-company files (including PostgreSQL) require the default selectio
 use `--company=` to clear a stored or environment selection.
 
 ```bash
-sbp invoices list --open --json --jq '.data[].id'
-sbp payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run
-sbp invoices pdf 31 -o invoice-31.pdf
+slowbooks invoices list --open --json --jq '.data[].id'
+slowbooks payments record --key chk-1042 --customer 7 --amount 500 --date 2026-11-09 --apply 31=500 --dry-run
+slowbooks invoices pdf 31 -o invoice-31.pdf
 ```
 
 Preview writes with `--dry-run` before sending them. Payment keys must be stable
@@ -59,22 +59,21 @@ and the error hint after an uncertain result.
 
 Piped output and `--json` use `{ok,data,summary,next}`; errors use
 `{ok:false,error}`. See [the envelope and exit codes](docs/json.md).
-Use `sbp commands --json` or `sbp --help --agent` for the generated command
-reference, and `sbp ops find deposit` for server operations beyond named commands.
+Use `slowbooks commands --json` or `slowbooks --help --agent` for the generated command
+reference, and `slowbooks ops find deposit` for server operations beyond named commands.
 
-Install the agent skill by copying [skills/sbp](skills/sbp/SKILL.md) to your
-agent's skills directory (for Codex: `~/.agents/skills/sbp/SKILL.md`). It teaches
+Install the agent skill by copying [skills/slowbooks-cli](skills/slowbooks-cli/SKILL.md) to your
+agent's skills directory (for Codex: `~/.agents/skills/slowbooks-cli/SKILL.md`). It teaches
 connection setup, discovery, safe writes and file handling.
 
 Requires SlowBooks Pro 2.31 or later; verified against SlowBooks Pro 2.31.10.
-Other versions produce an advisory warning and remain usable. `sbp version --json`
-lists this build's verified versions. V1 complete, awaiting skeptic review.
+Other versions produce an advisory warning and remain usable. `slowbooks version --json`
+lists this build's verified versions. V1 plus two three-platform skeptic rounds complete.
 MIT licensed.
 
 For contributors: `bash scripts/accept.sh` runs the offline gate;
 `bash scripts/e2e.sh` tests the pinned server in Docker.
-`bash scripts/release-dry-run.sh` builds six archives, checksums and a marketplace
-manifest in `.tmp/dist` without publishing. `scripts/smoke-live.sh` is manual:
+`bash scripts/release-dry-run.sh` builds six archives and checksums in `.tmp/dist` without publishing. `scripts/smoke-live.sh` is manual:
 it requires explicit server/token environment variables and creates then voids
 one invoice. It refuses to run in CI.
 
@@ -89,12 +88,10 @@ at login and before online reads/writes; unknown files are refused, while a fail
 lookup warns and proceeds. A supplied key is retry-safe only on keyed operations;
 unkeyed writes warn that the server ignores it. After a successful write, a jq
 runtime failure prints the unfiltered success and warns, with exit 0.
-`sbp version` reports release versions without the leading `v`.
+`slowbooks version` reports release versions without the leading `v`.
 
-In PowerShell, type `sbp.exe` for every command: `sbp` is a built-in alias for
-`Set-PSBreakpoint`. Quote file arguments as `"@file"` to avoid PowerShell
-splatting. For example:
+In PowerShell, quote file arguments as `"@file"` to avoid splatting. For example:
 
 ```powershell
-sbp.exe invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
+slowbooks invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --dry-run
 ```

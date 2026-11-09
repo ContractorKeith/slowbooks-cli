@@ -29,7 +29,7 @@ func TestBusinessRefusalGolden(t *testing.T) {
 
 func TestPaymentRetryLimitationsDocumented(t *testing.T) {
 	isolate(t)
-	for _, path := range []string{"../../docs/adr/0001-caller-supplied-payment-key.md", "../../skills/sbp/SKILL.md"} {
+	for _, path := range []string{"../../docs/adr/0001-caller-supplied-payment-key.md", "../../skills/slowbooks-cli/SKILL.md"} {
 		raw, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)

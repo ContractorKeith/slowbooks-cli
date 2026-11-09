@@ -150,7 +150,7 @@ func TestTimeoutAndPaths(t *testing.T) {
 		t.Fatal(e)
 	}
 	p, e := Dir()
-	if e != nil || p != filepath.Join(base, "sbp") {
+	if e != nil || p != filepath.Join(base, "slowbooks") {
 		t.Fatal(p, e)
 	}
 }

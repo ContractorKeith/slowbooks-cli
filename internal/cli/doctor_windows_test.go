@@ -15,7 +15,7 @@ import (
 // Doctor's success fixtures need a private parent, rather than inheriting the
 // broad ACL of a runner's shared temporary directory or C:\ scratch directory.
 func TestMain(m *testing.M) {
-	dir, err := os.MkdirTemp("", "sbp-doctor-tests-")
+	dir, err := os.MkdirTemp("", "slowbooks-doctor-tests-")
 	if err == nil {
 		err = setDoctorFixtureACL(dir, "")
 	}

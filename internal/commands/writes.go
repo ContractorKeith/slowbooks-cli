@@ -16,7 +16,7 @@ func Writes() []Row {
 		}
 	}
 	for i := range rows {
-		rows[i].Next = []string{"sbp " + strings.Fields(rows[i].Name)[0] + " list"}
+		rows[i].Next = []string{"slowbooks " + strings.Fields(rows[i].Name)[0] + " list"}
 	}
 	return rows
 }

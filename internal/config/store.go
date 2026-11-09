@@ -34,7 +34,7 @@ func Dir() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(p, "sbp"), nil
+	return filepath.Join(p, "slowbooks"), nil
 }
 func Path() (string, error) { p, e := Dir(); return filepath.Join(p, "profiles.json"), e }
 
@@ -75,7 +75,7 @@ func Load() (Store, error) {
 		return s, fileError("read profiles file", p, e)
 	}
 	if e = json.Unmarshal(bytes.TrimPrefix(b, []byte{0xef, 0xbb, 0xbf}), &s); e != nil {
-		return s, &output.Error{Code: "auth", Message: "invalid profiles file: " + p, Hint: "run sbp auth login --url <server> to recover " + p}
+		return s, &output.Error{Code: "auth", Message: "invalid profiles file: " + p, Hint: "run slowbooks auth login --url <server> to recover " + p}
 	}
 	if s.Profiles == nil {
 		s.Profiles = map[string]Profile{}
@@ -117,7 +117,7 @@ func ValidateName(name string) error {
 }
 
 func missing() error {
-	return &output.Error{Code: "auth", Message: "no configured profile", Hint: "run sbp auth login --url <server>"}
+	return &output.Error{Code: "auth", Message: "no configured profile", Hint: "run slowbooks auth login --url <server>"}
 }
 
 func nonRegularProfiles(path string) error {

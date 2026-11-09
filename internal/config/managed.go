@@ -60,5 +60,5 @@ func refuseSharedLogin(s Store, name, dir, path string) error {
 		return nil
 	}
 	return &output.Error{Code: "usage", Message: "token file is shared with another profile: " + path,
-		Hint: "log out the colliding profile (sbp auth logout --profile " + other + "), then re-login the remaining profile"}
+		Hint: "log out the colliding profile (slowbooks auth logout --profile " + other + "), then re-login the remaining profile"}
 }

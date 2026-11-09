@@ -55,7 +55,7 @@ func (s *session) login(cmd *cobra.Command, args []string) error {
 		return e
 	}
 	if strings.TrimSpace(p.URL) == "" {
-		return &output.Error{Code: "usage", Message: "server URL is required", Hint: "run sbp auth login --url <server>"}
+		return &output.Error{Code: "usage", Message: "server URL is required", Hint: "run slowbooks auth login --url <server>"}
 	}
 	timeout, e := config.Timeout(s.flags)
 	if e != nil {
@@ -102,5 +102,5 @@ func (s *session) login(cmd *cobra.Command, args []string) error {
 		return e
 	}
 	p = st.Profiles[name]
-	return s.w.Success(status{p.URL, p.Company, r, v, p.TokenFile}, "Logged in", []string{"sbp doctor"})
+	return s.w.Success(status{p.URL, p.Company, r, v, p.TokenFile}, "Logged in", []string{"slowbooks doctor"})
 }

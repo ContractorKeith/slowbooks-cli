@@ -15,7 +15,7 @@ func main() { os.Exit(run()) }
 
 func run() int {
 	w := output.New(os.Stdout, os.Stderr)
-	flags := flag.NewFlagSet("sbp-fake", flag.ContinueOnError)
+	flags := flag.NewFlagSet("slowbooks-fake", flag.ContinueOnError)
 	flags.SetOutput(w.HelpWriter())
 	addr := flags.String("listen", "127.0.0.1:0", "Listen address")
 	if err := flags.Parse(os.Args[1:]); err != nil {

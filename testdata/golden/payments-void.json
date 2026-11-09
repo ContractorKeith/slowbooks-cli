@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":1,"is_voided":true},"summary":"payments void","next":["sbp payments show 1"]}
+{"ok":true,"data":{"id":1,"is_voided":true},"summary":"payments void","next":["slowbooks payments show 1"]}

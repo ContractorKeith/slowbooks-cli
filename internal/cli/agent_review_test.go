@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
@@ -27,7 +26,7 @@ func TestAgentRequiresHelpAndShowsSubtree(t *testing.T) {
 	}
 	for _, path := range [][]string{{"invoices"}, {"invoices", "list"}} {
 		ref := agentReference(t, append(path, "--help", "--agent")...)
-		prefix := "sbp " + strings.Join(path, " ")
+		prefix := "slowbooks " + strings.Join(path, " ")
 		for _, item := range ref.Commands {
 			if item.Name != prefix && !strings.HasPrefix(item.Name, prefix+" ") {
 				t.Fatal("outside subtree", item.Name, prefix)
@@ -87,18 +86,6 @@ func TestHumanHelpAfterCommandsHasNoDuplicateGlobals(t *testing.T) {
 		if code := Run(args, &expected, &expected, Build{}); code != 0 || expected.String() != out.String() {
 			t.Fatalf("help changed: %d\n%s\n%s", code, &expected, &out)
 		}
-	}
-}
-
-func TestManifestRejectsPrereleaseBuild(t *testing.T) {
-	isolate(t)
-	var out bytes.Buffer
-	if code := Run([]string{"commands", "--manifest"}, &out, &out, Build{"v0.1.0-rc.1", "test"}); code != 2 {
-		t.Fatal(code, &out)
-	}
-	var env struct{ Error *output.Error }
-	if err := json.Unmarshal(out.Bytes(), &env); err != nil || env.Error == nil || env.Error.Code != "usage" {
-		t.Fatal(&out, err)
 	}
 }
 

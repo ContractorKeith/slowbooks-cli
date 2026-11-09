@@ -81,7 +81,7 @@ func TestE2EClosingDate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = admin.Do(ctx, "POST", "/api/auth/login", []byte(`{"password":"sbp-e2e-disposable-password"}`), ""); err != nil {
+	if _, err = admin.Do(ctx, "POST", "/api/auth/login", []byte(`{"password":"slowbooks-e2e-disposable-password"}`), ""); err != nil {
 		t.Fatal(err)
 	}
 	state := os.Getenv("SBP_E2E_CLOSING_STATE")

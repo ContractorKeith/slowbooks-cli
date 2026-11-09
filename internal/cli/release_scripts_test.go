@@ -47,7 +47,7 @@ func TestSmokeCleanupExitAndSignals(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := t.TempDir()
-			mock := filepath.Join(dir, "sbp")
+			mock := filepath.Join(dir, "slowbooks")
 			log := filepath.Join(dir, "calls")
 			raw := `#!/usr/bin/env bash
 set -eu
@@ -99,7 +99,7 @@ esac
 			if n := bytes.Count(calls, []byte("invoices void ")); n != wantVoids {
 				t.Fatalf("%d voids want %d: %s", n, wantVoids, calls)
 			}
-			if tc.voidFails && !bytes.Contains(out, []byte("could not confirm void for invoice id=42; inspect it and, if needed, run: sbp invoices void 42 --json")) {
+			if tc.voidFails && !bytes.Contains(out, []byte("could not confirm void for invoice id=42; inspect it and, if needed, run: slowbooks invoices void 42 --json")) {
 				t.Fatalf("missing manual recovery hint: %s", out)
 			}
 		})
@@ -137,7 +137,7 @@ func TestReleaseWorkflowRequiresTestsBeforeBuild(t *testing.T) {
 	}
 	text := string(raw)
 	previous := -1
-	for _, step := range []string{"bash scripts/check-release-version.sh", "go install honnef.co/go/tools/cmd/staticcheck@v0.8.2", "run: go test ./...", "run: bash scripts/accept.sh", "name: Build archives, checksums and manifest"} {
+	for _, step := range []string{"bash scripts/check-release-version.sh", "go install honnef.co/go/tools/cmd/staticcheck@v0.8.2", "run: go test ./...", "run: bash scripts/accept.sh", "name: Build archives and checksums"} {
 		index := strings.Index(text, step)
 		if index <= previous {
 			t.Fatalf("missing or out-of-order release gate: %s", step)

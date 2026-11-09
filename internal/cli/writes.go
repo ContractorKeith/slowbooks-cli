@@ -61,9 +61,9 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 		}
 		kind := strings.Fields(row.Name)[0]
 		opts.render = func(value any, _ bool) error {
-			next := "sbp " + kind + " list"
+			next := "slowbooks " + kind + " list"
 			if obj, ok := value.(map[string]any); ok && obj["id"] != nil {
-				next = fmt.Sprintf("sbp %s show %v", kind, obj["id"])
+				next = fmt.Sprintf("slowbooks %s show %v", kind, obj["id"])
 			}
 			return s.w.SuccessWrite(value, row.Name, []string{next})
 		}
@@ -71,7 +71,7 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 		if err != nil && name != "record" {
 			e := output.AsError(err)
 			if (e.Code == "network" || e.Code == "server") && client.WriteReachedWire(err) {
-				e.Hint = "check sbp " + kind + " list --limit 5 before running this write again"
+				e.Hint = "check slowbooks " + kind + " list --limit 5 before running this write again"
 			}
 			return e
 		}

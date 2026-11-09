@@ -129,7 +129,7 @@ func TestReviewFileWritesAndPlainText(t *testing.T) {
 		}
 	}
 	code, out, _ := invoke(t, "", "api", "GET", "/api/payroll/{run_id}/nacha", "--param", "run_id=1")
-	if code != 2 || !strings.Contains(out, "sbp download") {
+	if code != 2 || !strings.Contains(out, "slowbooks download") {
 		t.Fatal(code, out)
 	}
 }

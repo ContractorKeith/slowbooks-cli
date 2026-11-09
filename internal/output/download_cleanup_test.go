@@ -10,8 +10,8 @@ import (
 
 func TestDownloadCleansOnlyOldStagingFiles(t *testing.T) {
 	dir := t.TempDir()
-	old := filepath.Join(dir, ".sbp-download-11111")
-	fresh := filepath.Join(dir, ".sbp-download-22222")
+	old := filepath.Join(dir, ".slowbooks-download-11111")
+	fresh := filepath.Join(dir, ".slowbooks-download-22222")
 	other := filepath.Join(dir, "unrelated")
 	oldTime := time.Now().Add(-48 * time.Hour)
 	for _, path := range []string{old, fresh, other} {
@@ -24,7 +24,7 @@ func TestDownloadCleansOnlyOldStagingFiles(t *testing.T) {
 			}
 		}
 	}
-	nested := filepath.Join(dir, ".sbp-download-33333")
+	nested := filepath.Join(dir, ".slowbooks-download-33333")
 	if err := os.Mkdir(nested, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -56,7 +56,7 @@ func TestDownloadCleanupPreservesSymlinks(t *testing.T) {
 	if err := os.Chtimes(target, oldTime, oldTime); err != nil {
 		t.Fatal(err)
 	}
-	link := filepath.Join(dir, ".sbp-download-44444")
+	link := filepath.Join(dir, ".slowbooks-download-44444")
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlink creation unavailable: %v", err)
 	}
@@ -75,7 +75,7 @@ func TestDownloadCleanupPreservesSymlinks(t *testing.T) {
 
 func TestDownloadCleanupPreservesRequestedDestination(t *testing.T) {
 	dir := t.TempDir()
-	target := filepath.Join(dir, ".sbp-download-55555")
+	target := filepath.Join(dir, ".slowbooks-download-55555")
 	if err := writeOwnedDownloadFixture(target, []byte("original")); err != nil {
 		t.Fatal(err)
 	}

@@ -138,12 +138,12 @@ func ValidateToken(b []byte) (string, error) {
 	return s, nil
 }
 func invalidToken() error {
-	return &output.Error{Code: "auth", Message: "invalid token: expected one line starting with sbp_ and no whitespace", Hint: "run sbp auth login"}
+	return &output.Error{Code: "auth", Message: "invalid token: expected one line starting with sbp_ and no whitespace", Hint: "run slowbooks auth login"}
 }
 
 func missingURL() error {
-	return &output.Error{Code: "usage", Message: "server URL is missing", Hint: "set SLOWBOOKS_URL or run sbp auth login --url <server>"}
+	return &output.Error{Code: "usage", Message: "server URL is missing", Hint: "set SLOWBOOKS_URL or run slowbooks auth login --url <server>"}
 }
 func missingTokenFile() error {
-	return &output.Error{Code: "auth", Message: "token file is missing", Hint: "set SLOWBOOKS_TOKEN_FILE or run sbp auth login"}
+	return &output.Error{Code: "auth", Message: "token file is missing", Hint: "set SLOWBOOKS_TOKEN_FILE or run slowbooks auth login"}
 }

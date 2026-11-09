@@ -28,7 +28,7 @@ func cacheDir(profile string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		root = filepath.Join(root, "sbp")
+		root = filepath.Join(root, "slowbooks")
 	}
 	return filepath.Join(root, profile), nil
 }
@@ -71,7 +71,7 @@ func Load(ctx context.Context, cl *client.Client, profile string, offline bool) 
 			if !os.IsNotExist(err) {
 				return nil, err
 			}
-			return nil, &output.Error{Code: "usage", Message: "dry-run needs a cached catalog", Hint: "run sbp ops find <words> first to cache the catalog"}
+			return nil, &output.Error{Code: "usage", Message: "dry-run needs a cached catalog", Hint: "run slowbooks ops find <words> first to cache the catalog"}
 		}
 		path := filepath.Join(dir, "openapi-"+versionComponent(string(version))+".json")
 		data, err := os.ReadFile(path)

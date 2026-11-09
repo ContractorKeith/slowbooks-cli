@@ -161,7 +161,7 @@ func TestSkepticMacInstallRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, command := range []string{"xattr -d com.apple.quarantine sbp", "gh release download", "curl"} {
+	for _, command := range []string{"xattr -d com.apple.quarantine slowbooks", "gh release download", "curl"} {
 		if !strings.Contains(string(raw), command) {
 			t.Error("missing install instruction", command)
 		}

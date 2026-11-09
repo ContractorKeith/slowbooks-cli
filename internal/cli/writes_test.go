@@ -44,7 +44,7 @@ func TestNamedWrites(t *testing.T) {
 				t.Fatal(code, out)
 			}
 			code, out, _ = invoke(t, "", args...)
-			if code != 0 || !strings.Contains(out, `"next":["sbp `+strings.Fields(row.Name)[0]+` show 1"]`) {
+			if code != 0 || !strings.Contains(out, `"next":["slowbooks `+strings.Fields(row.Name)[0]+` show 1"]`) {
 				t.Fatal(code, out)
 			}
 			reqs := fake.Requests()

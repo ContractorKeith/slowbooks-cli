@@ -1,1 +1,1 @@
-{"ok":true,"data":{"customer_id":1,"date":"2026-01-01","id":1,"invoice_number":"INV-1","status":"sent","total":"100.00"},"summary":"invoices create","next":["sbp invoices show 1"]}
+{"ok":true,"data":{"customer_id":1,"date":"2026-01-01","id":1,"invoice_number":"INV-1","status":"sent","total":"100.00"},"summary":"invoices create","next":["slowbooks invoices show 1"]}

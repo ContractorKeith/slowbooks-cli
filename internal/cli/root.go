@@ -25,7 +25,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	jsonOutput, quiet := w.JSON, w.Quiet
 	root := &cobra.Command{
 		CompletionOptions: cobra.CompletionOptions{DisableDefaultCmd: true},
-		Use:               "sbp", Short: "SlowBooks Pro from the shell", SilenceErrors: true, SilenceUsage: true,
+		Use:               "slowbooks", Short: "SlowBooks Pro from the shell", SilenceErrors: true, SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			w.JSON, w.Quiet = jsonOutput, quiet
 			if agent, _ := cmd.Flags().GetBool("agent"); agent {
@@ -46,7 +46,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return &output.Error{Code: "usage", Message: "a command is required; see sbp --help"}
+			return &output.Error{Code: "usage", Message: "a command is required; see slowbooks --help"}
 		},
 	}
 	root.SetOut(w.HelpWriter())
@@ -72,7 +72,7 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 				Version  string   `json:"version"`
 				Commit   string   `json:"commit"`
 				Verified []string `json:"verified_sbp"`
-			}{strings.TrimPrefix(build.Version, "v"), build.Commit, commands.VerifiedVersions()}, "sbp "+strings.TrimPrefix(build.Version, "v"), nil)
+			}{strings.TrimPrefix(build.Version, "v"), build.Commit, commands.VerifiedVersions()}, "slowbooks "+strings.TrimPrefix(build.Version, "v"), nil)
 		},
 	})
 	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(nil))
