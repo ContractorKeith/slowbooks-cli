@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"errors"
 	"io"
 	"os"
 )
@@ -42,4 +43,17 @@ func (r downloadCopyReader) Read(p []byte) (int, error) {
 		return 0, err
 	}
 	return r.Reader.Read(p)
+}
+
+// Preserve the installation cause while reporting why the fallback also failed.
+func fallbackError(target string, linkErr, copyErr error) error {
+	if errors.Is(copyErr, context.Canceled) || errors.Is(copyErr, context.DeadlineExceeded) {
+		return destinationError(target, copyErr)
+	}
+	failure := AsError(destinationError(target, linkErr))
+	failure.Detail = "copy fallback: " + destinationError(target, copyErr).Error()
+	if os.IsExist(copyErr) {
+		failure.Hint = "use --force to overwrite"
+	}
+	return failure
 }

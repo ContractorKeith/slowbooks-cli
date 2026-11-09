@@ -97,19 +97,23 @@ managed token. Failed final token operations restore the previous profile data.
 Deleting the default promotes the alphabetically first remaining profile and
 names that default in the logout summary.
 
-Profile names are unique ignoring ASCII case; a conflicting login exits 2 and
-names the existing profile. New managed token paths and catalog profile directories
-use lowercase names; legacy managed token paths remain usable. Relative profile
+New profile names are unique ignoring ASCII case; a conflicting new login exits 2
+and names the existing profile. Exact existing names can be reauthenticated even
+when a legacy store contains case-colliding names. New managed token paths and
+catalog profile directories use lowercase names; legacy managed token paths remain usable. Relative profile
 `token_file` paths resolve against the config directory. Login refuses to replace
 an existing token not managed by the selected profile (exit 2, naming the file),
-and logout preserves external tokens.
+and logout preserves external tokens. Logout considers only the recorded token
+path and preserves files still referenced by another profile, including filesystem
+aliases; it never derives an alternate lowercase deletion path.
 
 UTF-8 BOMs are accepted in profiles and token files. UTF-16 token files are refused
 with a UTF-8/ASCII hint. Login moves malformed or empty profiles aside to
 `profiles.json.corrupt-<UTC timestamp>` and reports the backup path on stderr
-before starting a fresh store; other
-commands name the file and the login recovery command. On Windows, config readers
-share deletion, and replacements retry sharing/access-denied errors for at most
+before starting a fresh store; other commands name the file and the login recovery
+command. Only regular profiles files can be recovered: symlinks, FIFOs and other
+non-regular entries are refused with exit 3 and left untouched. On Windows, config
+readers share deletion, and replacements retry sharing/access-denied errors for at most
 280 ms of backoff. Doctor reports inherited ACLs instead of Unix mode bits there.
 
 Tokens are at most 4096 bytes, excluding an optional UTF-8 BOM and LF or CRLF.
@@ -210,8 +214,10 @@ exit 2 unless `--force` is set. Files are staged in the destination directory
 and installed atomically after a successful transfer; failures leave the existing
 file intact. No-clobber installation uses an atomic hard link to avoid a race
 between checking and renaming. Any hard-link failure other than an existing
-target uses exclusive creation and copying instead; failed copies remove the new target. That fallback
-can expose the target during copying. `--force` uses rename. Completed files use
+target uses exclusive creation and copying instead; failed copies remove the new
+target. If copying also fails, the primary message retains the original link
+error and `error.detail` explains the copy failure. Cancellation retains its
+network error classification. That fallback can expose the target during copying. `--force` uses rename. Completed files use
 0644 permissions on Unix (fallback creation also respects the process umask).
 Local destination failures exit 2 with the destination named and no staging paths.
 Directory destinations report that they are directories; a forced replacement of
@@ -226,11 +232,14 @@ rewound: after any bytes have been emitted, an interrupted stream exits 8 withou
 replaying bytes and is marked non-retryable. Consumers must discard that partial
 stream when the command fails.
 
-Before staging a download, sbp removes `.sbp-download-*` regular files in that
-directory that are older than one hour and owned by the current user. Cleanup
-skips symlinks and preserves the requested output file, fresh files, other names,
-and other owners.
-Files whose ownership cannot be checked or which cannot be removed are skipped.
+Before staging a download, sbp considers only regular files whose basenames match
+`^\.sbp-download-[0-9]+$`, the numeric shape produced by `os.CreateTemp`. A user
+file such as `.sbp-download-keep.pdf` is never a cleanup candidate. Candidates must
+be older than 24 hours and owned by the current user. Cleanup preserves the
+requested output file, fresh files, symlinks and other owners. Windows candidates
+must open with share mode zero; Unix candidates must admit a non-blocking exclusive
+flock, also held by the staging writer until its file closes. Busy files and files
+whose ownership cannot be checked or which cannot be removed are skipped.
 
 SIGINT/Ctrl-C and SIGTERM cancel active downloads, remove staged files, and exit
 8 (`network`, non-retryable). Broken stdout pipes also exit 8 with

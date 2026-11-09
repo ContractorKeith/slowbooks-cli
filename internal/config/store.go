@@ -44,7 +44,17 @@ func Load() (Store, error) {
 	if e != nil {
 		return s, e
 	}
-	f, e := openToken(p)
+	info, e := os.Lstat(p)
+	if os.IsNotExist(e) {
+		return s, nil
+	}
+	if e != nil {
+		return s, fileError("inspect profiles file", p, e)
+	}
+	if !info.Mode().IsRegular() {
+		return s, nonRegularProfiles(p)
+	}
+	f, e := openProfiles(p)
 	if os.IsNotExist(e) {
 		return s, nil
 	}
@@ -52,6 +62,13 @@ func Load() (Store, error) {
 		return s, fileError("read profiles file", p, e)
 	}
 	defer f.Close()
+	info, e = f.Stat()
+	if e != nil {
+		return s, fileError("inspect profiles file", p, e)
+	}
+	if !info.Mode().IsRegular() {
+		return s, nonRegularProfiles(p)
+	}
 	b, e := io.ReadAll(f)
 	if e != nil {
 		return s, fileError("read profiles file", p, e)
@@ -100,4 +117,8 @@ func ValidateName(name string) error {
 
 func missing() error {
 	return &output.Error{Code: "auth", Message: "no configured profile", Hint: "run sbp auth login --url <server>"}
+}
+
+func nonRegularProfiles(path string) error {
+	return &output.Error{Code: "auth", Message: "profiles file is not a regular file: " + path, Hint: "use a regular profiles.json file: " + path}
 }

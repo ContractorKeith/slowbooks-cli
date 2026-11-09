@@ -39,7 +39,7 @@ func writeOwnedDownloadFixture(path string, data []byte) error {
 
 func TestWindowsCleanupPreservesOtherOwner(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, ".sbp-download-other-owner")
+	path := filepath.Join(dir, ".sbp-download-66666")
 	if err := os.WriteFile(path, []byte("keep"), 0600); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +50,7 @@ func TestWindowsCleanupPreservesOtherOwner(t *testing.T) {
 	if err = windows.SetNamedSecurityInfo(path, windows.SE_FILE_OBJECT, windows.OWNER_SECURITY_INFORMATION, owner, nil, nil, nil); err != nil {
 		t.Skipf("setting foreign owner unavailable: %v", err)
 	}
-	old := time.Now().Add(-2 * time.Hour)
+	old := time.Now().Add(-48 * time.Hour)
 	if err = os.Chtimes(path, old, old); err != nil {
 		t.Fatal(err)
 	}

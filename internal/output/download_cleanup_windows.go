@@ -1,6 +1,7 @@
 package output
 
 import (
+	"os"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -12,7 +13,7 @@ func removeStaleDownload(path string, cutoff time.Time) {
 		return
 	}
 	// Open the entry itself. Deletion uses this verified handle, not a second path lookup.
-	h, err := windows.CreateFile(ptr, windows.READ_CONTROL|windows.FILE_READ_ATTRIBUTES|windows.DELETE, windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_OPEN_REPARSE_POINT|windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
+	h, err := windows.CreateFile(ptr, windows.READ_CONTROL|windows.FILE_READ_ATTRIBUTES|windows.DELETE, 0, nil, windows.OPEN_EXISTING, windows.FILE_FLAG_OPEN_REPARSE_POINT|windows.FILE_FLAG_BACKUP_SEMANTICS, 0)
 	if err != nil {
 		return
 	}
@@ -41,3 +42,6 @@ func removeStaleDownload(path string, cutoff time.Time) {
 	disposition := [4]byte{1, 0, 0, 0}
 	_ = windows.SetFileInformationByHandle(h, windows.FileDispositionInfo, &disposition[0], uint32(len(disposition)))
 }
+
+// CreateTemp's live write handle already prevents an exclusive cleanup open.
+func lockDownload(*os.File) error { return nil }

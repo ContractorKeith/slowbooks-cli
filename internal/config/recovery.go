@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"time"
 
@@ -33,6 +34,13 @@ func loginStore() (Store, string, error) {
 	path, e := Path()
 	if e != nil {
 		return s, "", e
+	}
+	info, e := os.Lstat(path)
+	if e != nil {
+		return s, "", fileError("inspect profiles file", path, e)
+	}
+	if !info.Mode().IsRegular() {
+		return s, "", nonRegularProfiles(path)
 	}
 	backup := path + ".corrupt-" + time.Now().UTC().Format("20060102T150405.000000000Z")
 	if e = renameFile(path, backup); e != nil {

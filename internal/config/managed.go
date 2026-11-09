@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -8,6 +9,9 @@ import (
 )
 
 func uniqueName(s Store, name string) error {
+	if _, exists := s.Profiles[name]; exists {
+		return nil
+	}
 	for existing := range s.Profiles {
 		if existing != name && strings.EqualFold(existing, name) {
 			return &output.Error{Code: "usage", Message: "profile already exists with different case: " + existing, Hint: "use --profile " + existing}
@@ -22,8 +26,30 @@ func tokenPath(dir, path string) string {
 	return filepath.Join(dir, path)
 }
 
-// Recognize the original spelling as well as the folded path for legacy stores.
+// A managed record must name its profile's token inside the tokens directory.
+// Never derive a different path from its spelling.
 func managedToken(dir, name, path string) bool {
 	path = tokenPath(dir, path)
-	return path == filepath.Join(dir, "tokens", name+".token") || path == filepath.Join(dir, "tokens", strings.ToLower(name)+".token")
+	return filepath.Dir(path) == filepath.Join(dir, "tokens") && strings.EqualFold(filepath.Base(path), name+".token")
+}
+
+// Preserve a recorded path while any other profile still relies on it, including
+// aliases on case-insensitive filesystems and symlinks to the same file.
+func sharedToken(s Store, name, dir, path string) bool {
+	info, _ := os.Stat(path)
+	for other, p := range s.Profiles {
+		if other == name || p.TokenFile == "" {
+			continue
+		}
+		recorded := tokenPath(dir, p.TokenFile)
+		if recorded == path {
+			return true
+		}
+		if info != nil {
+			if otherInfo, e := os.Stat(recorded); e == nil && os.SameFile(info, otherInfo) {
+				return true
+			}
+		}
+	}
+	return false
 }

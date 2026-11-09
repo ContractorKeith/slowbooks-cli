@@ -38,6 +38,11 @@ func NewDownloadFile(destination string) (*DownloadFile, error) {
 	if err != nil {
 		return nil, destinationError(destination, err)
 	}
+	if err = lockDownload(file); err != nil {
+		_ = file.Close()
+		_ = os.Remove(file.Name())
+		return nil, destinationError(destination, err)
+	}
 	return &DownloadFile{file: file, destination: destination, link: os.Link}, nil
 }
 
@@ -68,7 +73,10 @@ func (f *DownloadFile) Save(ctx context.Context, filename string, force bool) (s
 	} else {
 		err = f.link(f.file.Name(), target)
 		if err != nil && !os.IsExist(err) {
-			err = copyExclusive(ctx, f.file.Name(), target)
+			if copyErr := copyExclusive(ctx, f.file.Name(), target); copyErr != nil {
+				return "", fallbackError(target, err, copyErr)
+			}
+			err = nil
 		}
 	}
 	if os.IsExist(err) {
