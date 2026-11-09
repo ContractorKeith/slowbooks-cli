@@ -130,7 +130,8 @@ unrecorded token files. Other commands name the file and the login recovery
 command. Only regular profiles files can be recovered: symlinks, FIFOs and other
 non-regular entries are refused with exit 3 and left untouched. On Windows, config
 readers share deletion, and each replacement retries sharing/access-denied errors
-for about two seconds before naming the file as `in use by another program`.
+for about two seconds. A confirmed sharing conflict names the file as
+`in use by another program`; other access errors keep their original reason.
 Filesystems rejecting POSIX replacement use a MoveFileEx replacement fallback.
 Doctor reads the token DACL instead of trusting synthetic Unix mode bits. Read
 grants outside the owner, SYSTEM and Administrators fail its token row (exit 3)

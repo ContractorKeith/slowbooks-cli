@@ -91,3 +91,22 @@ func TestRound2WindowsRenameBusyDiagnostic(t *testing.T) {
 		t.Fatal("retry duration", elapsed)
 	}
 }
+
+func TestRound2WindowsReadOnlyIsNotReportedAsHeld(t *testing.T) {
+	isolate(t)
+	if e := SaveLogin("a", Profile{}, "sbp_old"); e != nil {
+		t.Fatal(e)
+	}
+	path, _ := Path()
+	if e := os.Chmod(path, 0444); e != nil {
+		t.Fatal(e)
+	}
+	defer os.Chmod(path, 0600)
+	e := SaveLogin("a", Profile{}, "sbp_new")
+	if output.ExitCode(e) != 3 || !strings.Contains(e.Error(), path) {
+		t.Fatal(e)
+	}
+	if strings.Contains(e.Error(), "in use by another program") {
+		t.Fatal("read-only file misreported as a held handle", e)
+	}
+}
