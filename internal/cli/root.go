@@ -28,6 +28,9 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 		Use:               "sbp", Short: "SlowBooks Pro from the shell", SilenceErrors: true, SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			w.JSON, w.Quiet = jsonOutput, quiet
+			if agent, _ := cmd.Flags().GetBool("agent"); agent {
+				return agentUsage()
+			}
 			if err := w.SetJQ(jq, cmd.Flags().Changed("jq")); err != nil {
 				return err
 			}
@@ -75,11 +78,14 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 	root.AddCommand(s.authCommands(), s.profileCommands(), s.doctorCommand(), s.opsCommands(), s.callCommand("api", true), s.downloadCommand(nil))
 	s.addReads(root)
 	s.addWrites(root)
+	s.addAgent(root)
+	initializeHelp(root)
 	return root
 }
 
 // Execute renders all errors exactly once, including cobra parse errors.
 func Execute(root *cobra.Command, w *output.Writer, args []string) int {
+	w.HelpError = nil
 	if raw, jsonRequested := rawDownloadOptions(root, args); raw {
 		w.JSON = w.JSON || jsonRequested
 		w.DownloadStream()
@@ -99,6 +105,9 @@ func Execute(root *cobra.Command, w *output.Writer, args []string) int {
 			err = &output.Error{Code: "usage", Message: err.Error()}
 		}
 		return w.Failure(err)
+	}
+	if w.HelpError != nil {
+		return w.Failure(w.HelpError)
 	}
 	return output.ExitCode(nil)
 }

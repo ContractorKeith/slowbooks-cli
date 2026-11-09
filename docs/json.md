@@ -211,3 +211,25 @@ flags must not be blank. Required body fields are declared in the command table.
 `--fee-refunded` is available only for payment voids and sends the query parameter
 `fee_refunded=true` when enabled. Every named write supports an offline dry-run
 with the same redacted preview as the generic layer.
+
+`commands --json` and root `--help --agent` return the same success envelope.
+`--agent` requires `--help`; on a subcommand it describes only that subtree. Its
+`data` has `commands` (the generated Cobra tree, including inherited flags) and
+`exit_codes`. Command entries include `name`, positional `args`, `flags` with
+name/type/default/required, `operation` where applicable, `access`
+(read/write/dynamic), `keyed`, `file_output`, examples and next hints.
+`required_fields` describes required write body fields: they can come from
+flags or `--data`, so the individual flags are not unconditionally required.
+`reports run` describes a path template; the manifest expands it into the
+verified concrete JSON report operations. `reports list` reads the catalog.
+Generic `api` and `ops call` have dynamic access and key requirements based on
+the selected operation; consult `ops describe` before calling them.
+
+`commands --manifest` emits a raw marketplace `plugin.json`, without an envelope
+or jq/quiet transformation. `--checksums SHA256SUMS` requires a valid checksum
+for all six release archives; without it, download hashes are placeholder zeros.
+Do not use placeholder hashes to verify a download. Tagged build versions have
+the leading `v` removed. Only stable `x.y.z` build versions are accepted;
+prerelease, build-metadata and unversioned development builds exit 2. The local
+release dry run injects `v0.0.0`. Report paths can be regenerated with
+`go test ./internal/commands -run '^TestReportsEmbedded$' -update`.

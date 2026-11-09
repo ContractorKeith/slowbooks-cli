@@ -1,0 +1,61 @@
+name: Release
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Build and upload artifacts without creating a release
+        type: boolean
+        default: true
+        required: true
+permissions:
+  contents: read
+jobs:
+  artifacts:
+    runs-on: ubuntu-latest
+    outputs:
+      stable: ${{ steps.version.outputs.stable }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Require a stable release version
+        id: version
+        env:
+          RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.0.0' }}
+        run: |
+          bash scripts/check-release-version.sh "$RELEASE_VERSION"
+          echo 'stable=true' >> "$GITHUB_OUTPUT"
+      - run: go install honnef.co/go/tools/cmd/staticcheck@v0.8.2
+      - run: go test ./...
+      - run: bash scripts/accept.sh
+      - name: Build archives, checksums and manifest
+        run: bash scripts/release-dry-run.sh
+        env:
+          SBP_RELEASE_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || 'v0.0.0' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sbp-release
+          path: .tmp/dist/*
+          include-hidden-files: true
+          if-no-files-found: error
+  publish:
+    needs: artifacts
+    # A manual dispatch from a branch can never publish a release.
+    if: needs.artifacts.outputs.stable == 'true' && startsWith(github.ref, 'refs/tags/v') && (github.event_name == 'push' || !inputs.dry-run)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: sbp-release
+          path: dist
+      - name: Create compatibility release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: gh release create "$RELEASE_TAG" dist/*.tar.gz dist/*.zip dist/SHA256SUMS dist/plugin.json --verify-tag --title "$RELEASE_TAG" --notes-file dist/NOTES.md

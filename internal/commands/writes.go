@@ -1,5 +1,7 @@
 package commands
 
+import "strings"
+
 // Writes describes the supported named mutations and their request field mappings.
 func Writes() []Row {
 	rows := []Row{
@@ -12,6 +14,9 @@ func Writes() []Row {
 		case "invoices show", "bills show", "expenses show", "journal show", "payments show", "bill-payments show":
 			rows = append(rows, Row{Name: read.Name[:len(read.Name)-4] + "void", Method: "POST", Path: read.Path + "/void", Args: read.Args, Write: true})
 		}
+	}
+	for i := range rows {
+		rows[i].Next = []string{"sbp " + strings.Fields(rows[i].Name)[0] + " show <id>"}
 	}
 	return rows
 }
