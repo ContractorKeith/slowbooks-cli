@@ -5,7 +5,11 @@ object on stdout (except jq streams). A terminal without `--json` gets a table f
 arrays of objects and a key/value view for objects; human errors
 go to stderr, with a non-empty hint on a second line. All human diagnostics,
 including warnings, escape controls with the table escaper. JSON encoders do not
-HTML-escape `<`, `>` or `&`. `--quiet` prints only the
+HTML-escape `<`, `>` or `&`. `--json` and `--jq` emit raw JSON, including on a
+TTY; they do not use table/text formatting. Strings are escaped by JSON encoding
+only, so decoding returns their original values. On a TTY, JSON encoding also
+uses Unicode escapes for unsafe C1/control and bidi/format characters; it retains
+U+200C, U+200D and U+00AD. Piped JSON retains the standard JSON encoder's escapes. `--quiet` prints only the
 successful `data` value as JSON. Errors keep their full envelope even with `--quiet`. `--no-color` is accepted; M0 emits
 no color. `--jq <expr>` filters the full success envelope by default (for example,
 `--jq '.data[].id'`). With `--quiet`, jq instead filters the data value
@@ -52,7 +56,7 @@ writes have
 Network failures and HTTP 502/503/504 on keyed operations carrying `--key` have
 `retryable:true` and `rerun with the same --key` advice. Keyed operations are the
 four payment routes in PLAN §5 or operations declaring an Idempotency-Key header
-in the catalog. Supplying `--key` on any other operation warns that the server
+in the catalog. Supplying `--key` on an unkeyed write warns that the server
 ignores it; an uncertain unkeyed write stays non-retryable with check-the-books
 advice. This includes batch payments, replacements, voids, invoices and customers.
 Reads retry once on
@@ -187,7 +191,8 @@ list requests also honor a declared maximum and page when necessary to satisfy
 TTY tables use the named command's columns, or up to five scalar fields in
 alphabetical order for generic results. Every human TTY path, including scalars,
 scalar arrays, nested values, keys, headers and cells, escapes C0/C1 controls and
-Unicode format characters (category Cf), including bidi controls. Diagnostics use
+Unicode format characters (category Cf), including bidi controls. U+200C (ZWNJ),
+U+200D (ZWJ) and U+00AD (soft hyphen) remain literal for legitimate names and emoji. Diagnostics use
 the same escaper. Padding uses a small local display-width function covering
 common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
 complex joined emoji sequences and terminal-specific widths may vary.
@@ -313,6 +318,8 @@ company's exact `file` is accepted; display names, ids and database names are no
 routing identifiers. If no row has a `file`, selection exits 2 with `this server
 does not support company selection`. Use `--company=` to clear a stored or
 environment selection and use the default company (including PostgreSQL servers).
+For persistent recovery, unset `SLOWBOOKS_COMPANY`, or clear the selected saved
+profile with `sbp auth login --profile <profile> --company=` and enter its token.
 A successful lookup refuses unknown files. A failed lookup warns `could not verify
 company X: <reason>` and permits the operation; doctor still fails its companies
 diagnostic row for lookup errors, unsupported selection or unknown files. One company lookup is cached in memory per invocation. Offline

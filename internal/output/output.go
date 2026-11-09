@@ -59,7 +59,7 @@ func (w *Writer) Success(data any, summary string, next []string) error {
 		return w.filter(value)
 	}
 	if w.Quiet || w.JSON || !w.TTY {
-		return jsonEncoder(w.Out).Encode(value)
+		return jsonEncoder(w.Out, w.TTY).Encode(value)
 	}
 	if err := w.human(data); err != nil {
 		return err
@@ -75,7 +75,7 @@ func (w *Writer) Success(data any, summary string, next []string) error {
 func (w *Writer) Failure(err error) int {
 	e := AsError(err)
 	if w.JSON || !w.TTY {
-		if writeErr := jsonEncoder(w.Out).Encode(struct {
+		if writeErr := jsonEncoder(w.Out, w.TTY).Encode(struct {
 			OK    bool   `json:"ok"`
 			Error *Error `json:"error"`
 		}{false, e}); writeErr != nil {

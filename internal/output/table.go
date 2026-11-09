@@ -123,7 +123,7 @@ func sortedKeys(fields map[string]any) []string {
 func escapeControls(s string) string {
 	var b strings.Builder
 	for _, r := range s {
-		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+		if needsTerminalEscape(r) {
 			switch r {
 			case '\n':
 				b.WriteString(`\n`)
@@ -143,4 +143,13 @@ func escapeControls(s string) string {
 		}
 	}
 	return b.String()
+}
+
+// Preserve joining controls and soft hyphens used in names and emoji. Bidi and
+// all other format/control characters remain escaped in terminal output.
+func needsTerminalEscape(r rune) bool {
+	if r == '\u200c' || r == '\u200d' || r == '\u00ad' {
+		return false
+	}
+	return unicode.IsControl(r) || unicode.Is(unicode.Cf, r)
 }

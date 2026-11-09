@@ -102,7 +102,7 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	}
 	keyed := op.Keyed || catalog.IsKeyed(method, target.Path)
 	cl = cl.ForOperation(keyed)
-	if opts.key != "" && !keyed {
+	if opts.key != "" && !keyed && method != "GET" && method != "HEAD" {
 		if err := s.warn("server ignores --key on this unkeyed operation; check the books after an uncertain write"); err != nil {
 			return err
 		}

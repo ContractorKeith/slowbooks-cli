@@ -99,8 +99,7 @@ Discard partial streamed output if the command fails.
 
 Use `--open` for open invoices/bills. `--status` accepts invoices
 `draft|sent|partial|paid|void`, bills `draft|unpaid|partial|paid|void`.
-Keys must match `[A-Za-z0-9._:-]{1,128}`. Login and writes refuse unknown companies
-with exit 2 and a hint listing available companies.
+Keys must match `[A-Za-z0-9._:-]{1,128}`.
 
 On Windows PowerShell 5.1, prefer `--data "@file"` to inline JSON. Save JSON as
 UTF-8; UTF-8 BOMs are accepted, UTF-16 is unsupported. For downloads use `-o file`
@@ -113,8 +112,7 @@ resolve what happened before making another payment change.
 
 When the catalog omits a status enum, verified 2.31.10 bills use
 `draft|unpaid|partial|paid|void`; other operations warn and pass the value through. Generic calls such as `sbp api GET /api/invoices --param status=sent`
-bypass named status validation. A failed company lookup warns and permits login
-or writes; a successful lookup still refuses unknown companies.
+bypass named status validation.
 
 In PowerShell, type `sbp.exe` for every command: `sbp` is a built-in alias for
 `Set-PSBreakpoint`. Quote file arguments as `"@file"` to avoid PowerShell
@@ -126,11 +124,14 @@ sbp.exe invoices create --customer 7 --date 2026-11-09 --data "@invoice.json" --
 
 Company selection accepts only the exact served-company `file` from
 `/api/companies`, never its display name, id or database name. Online reads and
-writes refuse unknown files. If the server lists no files (including PostgreSQL),
+writes refuse unknown files. Login validates the same selection before saving
+its profile. If the server lists no files (including PostgreSQL),
 selection is unsupported: use `--company=` for its default books. Failed company
-lookups warn and permit the operation.
+lookups warn and permit the operation. For persistent recovery, unset
+`SLOWBOOKS_COMPANY` or clear a saved selection with
+`sbp auth login --profile <profile> --company=` and enter its token.
 
-A supplied `--key` only makes a keyed operation safe to replay. On any unkeyed
+A supplied `--key` only makes a keyed operation safe to replay. On any unkeyed write
 operation it warns that the server ignores the key; never follow a same-key replay
 strategy for invoices, customers, deposits, journal entries or payment voids.
 After a successful write, a jq runtime failure emits the unfiltered success

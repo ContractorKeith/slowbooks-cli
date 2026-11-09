@@ -15,7 +15,7 @@ type jqResult struct {
 
 // Evaluation and encoding run away from the writer so heap checks remain live
 // even while Next or JSON encoding is allocating an intermediate value.
-func streamJQ(ctx context.Context, code *gojq.Code, value any, results chan<- jqResult) {
+func streamJQ(ctx context.Context, code *gojq.Code, value any, results chan<- jqResult, terminal bool) {
 	defer close(results)
 	send := func(result jqResult) bool {
 		select {
@@ -41,7 +41,7 @@ func streamJQ(ctx context.Context, code *gojq.Code, value any, results chan<- jq
 			return
 		}
 		var buf bytes.Buffer
-		if err := jsonEncoder(&buf).Encode(value); err != nil {
+		if err := jsonEncoder(&buf, terminal).Encode(value); err != nil {
 			send(jqResult{err: err})
 			return
 		}

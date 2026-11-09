@@ -87,7 +87,7 @@ bypasses named status validation.
 Payment keys use 1–128 letters, digits, or `._:-`. Selected companies are checked
 at login and before online reads/writes; unknown files are refused, while a failed
 lookup warns and proceeds. A supplied key is retry-safe only on keyed operations;
-other operations warn that the server ignores it. After a successful write, a jq
+unkeyed writes warn that the server ignores it. After a successful write, a jq
 runtime failure prints the unfiltered success and warns, with exit 0.
 `sbp version` reports release versions without the leading `v`.
 
