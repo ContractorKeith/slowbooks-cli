@@ -94,7 +94,7 @@ Discard partial streamed output if the command fails.
 | 4 | Role or closing-date refusal |
 | 5 | Not found |
 | 6 | Conflict, including key reused with a different body |
-| 7 | Invalid data (422) |
+| 7 | Business refusal (400) or invalid data (422) |
 | 8 | Network, timeout, or server failure |
 
 Use `--open` for open invoices/bills. `--status` accepts invoices
@@ -105,3 +105,8 @@ with exit 2 and a hint listing available companies.
 On Windows PowerShell 5.1, prefer `--data @file` to inline JSON. Save JSON as
 UTF-8; UTF-8 BOMs are accepted, UTF-16 is unsupported. For downloads use `-o file`
 or `cmd /c "sbp ... -o - > file"`, because PowerShell's `>` re-encodes bytes.
+
+`POST /api/batch-payments` and the payment `/replace` routes do not accept an
+`Idempotency-Key` on the server. Supplying `--key` cannot make these operations
+retry-safe: never re-run them after an uncertain result. Inspect the books and
+resolve what happened before making another payment change.

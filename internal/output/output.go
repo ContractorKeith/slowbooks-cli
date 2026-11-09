@@ -15,17 +15,18 @@ import (
 // Writer owns command output, including help and diagnostics.
 type Writer struct {
 	// HelpError preserves failures from Cobra's void help callback.
-	HelpError error
-	raw       io.Writer
-	Out       io.Writer
-	Err       io.Writer
-	JSON      bool
-	Quiet     bool
-	TTY       bool
-	Columns   []string
-	jq        *gojq.Code
-	ctx       context.Context
-	timeout   time.Duration
+	HelpError     error
+	raw           io.Writer
+	Out           io.Writer
+	Err           io.Writer
+	JSON          bool
+	Quiet         bool
+	TTY           bool
+	Columns       []string
+	jq            *gojq.Code
+	ctx           context.Context
+	timeout       time.Duration
+	jqMemoryLimit uint64
 }
 
 // New detects a terminal only for actual file descriptors.

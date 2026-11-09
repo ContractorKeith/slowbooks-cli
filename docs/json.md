@@ -15,8 +15,12 @@ Parse and compile errors are checked before requests or mutations. Errors always
 retain their full envelope, bypassing jq; a streaming evaluation error may follow
 already emitted results. Evaluation uses the command context and the configured
 `--timeout` (including the timeout environment variable). Output is capped at
-100,000 results and 64 MiB including newlines; cancellation, timeout, and cap
-failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
+100,000 results and 64 MiB including newlines. During evaluation, a watchdog
+samples process heap objects every 50 ms and cancels when usage exceeds 512 MiB
+(exit 2, `--jq used more than 512 MiB`). This is a sampled process-wide budget,
+so allocation bursts may briefly exceed it. If evaluation has not stopped within
+250 ms of cancellation, the CLI emits the error envelope and exits 2.
+Cancellation, timeout, and cap failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
 output, and tables. jq receives exact integers, including IDs beyond 2^53;
 jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 
@@ -39,8 +43,11 @@ is a string, an object with `message`, or an array whose first item has
 writes have
 `retryable:false` and a hint to check the books before running the write again.
 Network failures and HTTP 502/503/504 on writes carrying `--key` have `retryable:true` and the hint
-`rerun with the same --key`. Reads retry once on network failure or HTTP
-502/503/504. Only network errors and HTTP 502/503/504 are marked
+`rerun with the same --key`. The known exceptions are `POST /api/batch-payments`
+and payment `/replace` routes: the server ignores keys on them, so they retain
+`retryable:false` and check-the-books advice even when `--key` is supplied.
+Never re-run these operations after an uncertain result. Reads retry once on
+network failure or HTTP 502/503/504. Only network errors and HTTP 502/503/504 are marked
 retryable for reads; HTTP 500/501 are not. Timeout is 120 seconds by default, range
 1–3600, per attempt, and also bounds DNS lookup. Reads may take two attempts. Responses larger than 64 MiB fail with exit 8
 and message `response too large`; these size failures are not retryable.
@@ -54,7 +61,7 @@ and message `response too large`; these size failures are not retryable.
 | 4 | `refused` | HTTP 403, including role or closing-date refusal |
 | 5 | `not_found` | HTTP 404 |
 | 6 | `conflict` | HTTP 409, including mismatched payment-key reuse |
-| 7 | `invalid` | HTTP 422 |
+| 7 | `invalid` | HTTP 400 business refusal or HTTP 422 validation failure |
 | 8 | `network` / `server` | Connection failure, timeout, response read failure, or HTTP 5xx |
 
 Builds inject `version` and `commit` with `-ldflags '-X main.version=... -X
@@ -102,7 +109,11 @@ server provides them, and `truncated`. Local schema references are resolved with
 a depth cap of 8, a 600-node budget, and a 16,000-character budget; alias chains
 have a 60-reference cap and cycle detection. Cuts are marked. Calls return the
 server JSON (or null for an empty response). Successful writes
-with a non-JSON media type return raw text as a JSON string. Malformed JSON
+with an explicitly declared non-JSON response retain raw text as a JSON string.
+If an operation declares JSON and instead returns an undeclared non-JSON body,
+the command exits 1 with `retryable:false`, message `the server answered with a
+page, not JSON; the write may have happened`, and a check-the-books hint. The
+write is never replayed. Unknown operations retain permissive text handling. Malformed JSON
 responses and local cache errors use `error` (exit 1), not `server`. Catalog write
 failures warn on stderr and commands continue using the fetched catalog.
 

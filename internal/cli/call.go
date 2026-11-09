@@ -93,6 +93,9 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	resolved, _ := cat.Lookup(method, target.Path)
 	op.Keyed = op.Keyed || resolved.Keyed
 	op.FileRoute = op.FileRoute || resolved.FileRoute
+	if len(op.ResponseMedia) == 0 {
+		op.ResponseMedia = resolved.ResponseMedia
+	}
 
 	if op.FileRoute || ((method == "GET" || method == "HEAD") && catalog.IsFile(target.Path)) {
 		return &output.Error{Code: "usage", Message: "file routes require download", Hint: "sbp download " + target.Path}

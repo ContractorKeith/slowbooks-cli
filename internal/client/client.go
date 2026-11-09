@@ -98,7 +98,7 @@ func (c *Client) DoResponse(ctx context.Context, method, path string, body []byt
 			return data, nil
 		}
 		e := output.AsError(err)
-		if !read && key != "" && (e.Code == "network" || e.Code == "server" && WriteReachedWire(err)) && e.Message != "response too large" {
+		if !read && key != "" && supportsKeyReplay(path) && (e.Code == "network" || e.Code == "server" && WriteReachedWire(err)) && e.Message != "response too large" {
 			e.Retryable = true
 			e.Hint = "rerun with the same --key"
 		}
@@ -222,7 +222,7 @@ func responseError(status int, data []byte, read bool) *output.Error {
 		e.Code = "not_found"
 	case status == 409:
 		e.Code = "conflict"
-	case status == 422:
+	case status == 400 || status == 422:
 		e.Code = "invalid"
 	case status >= 500:
 		e.Code = "server"

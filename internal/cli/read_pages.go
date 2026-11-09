@@ -46,7 +46,7 @@ func (s *session) callResult(cmd *cobra.Command, cl *client.Client, method strin
 		if err != nil {
 			return nil, false, err
 		}
-		result, err := decodeResult(response.Data, response.ContentType, method)
+		result, err := decodeResult(response.Data, response.ContentType, method, op.ResponseMedia)
 		if err != nil {
 			return nil, false, err
 		}
@@ -103,22 +103,49 @@ func paging(op catalog.Operation) (hasLimit bool, pageParam string, size, maximu
 	return
 }
 
-func decodeResult(data []byte, contentType, method string) (any, error) {
+func decodeResult(data []byte, contentType, method string, declared []string) (any, error) {
 	if len(data) == 0 || method == "HEAD" {
 		return nil, nil
 	}
 	media, _, _ := mime.ParseMediaType(contentType)
 	if method != "GET" && media != "application/json" && !strings.HasSuffix(media, "+json") {
+		if requiresJSON(declared, media) {
+			return nil, uncertainJSONWrite()
+		}
 		return string(data), nil
 	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.UseNumber()
 	var result any
 	if err := decoder.Decode(&result); err != nil {
+		if method != "GET" && method != "HEAD" && requiresJSON(declared, "") {
+			return nil, uncertainJSONWrite()
+		}
 		return nil, &output.Error{Code: "error", Message: "invalid JSON from server"}
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
+		if method != "GET" && method != "HEAD" && requiresJSON(declared, "") {
+			return nil, uncertainJSONWrite()
+		}
 		return nil, &output.Error{Code: "error", Message: "invalid JSON from server"}
 	}
 	return result, nil
+}
+
+// Explicitly declared non-JSON responses remain valid, including mixed media.
+func requiresJSON(declared []string, actual string) bool {
+	jsonDeclared := false
+	for _, media := range declared {
+		if media == actual {
+			return false
+		}
+		if media == "application/json" || strings.HasSuffix(media, "+json") {
+			jsonDeclared = true
+		}
+	}
+	return jsonDeclared
+}
+
+func uncertainJSONWrite() *output.Error {
+	return &output.Error{Code: "error", Message: "the server answered with a page, not JSON; the write may have happened", Hint: "check the books before running this write again"}
 }

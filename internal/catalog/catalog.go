@@ -15,15 +15,16 @@ type Param struct {
 	Schema   any    `json:"schema,omitempty"`
 }
 type Operation struct {
-	Method    string   `json:"method"`
-	Path      string   `json:"path"`
-	Summary   string   `json:"summary"`
-	Tags      []string `json:"tags"`
-	Params    []Param  `json:"params"`
-	Body      any      `json:"body_schema"`
-	Keyed     bool     `json:"keyed"`
-	FileRoute bool     `json:"file_route"`
-	RoleNotes string   `json:"role_notes,omitempty"`
+	Method        string   `json:"method"`
+	Path          string   `json:"path"`
+	Summary       string   `json:"summary"`
+	Tags          []string `json:"tags"`
+	Params        []Param  `json:"params"`
+	Body          any      `json:"body_schema"`
+	Keyed         bool     `json:"keyed"`
+	FileRoute     bool     `json:"file_route"`
+	RoleNotes     string   `json:"role_notes,omitempty"`
+	ResponseMedia []string `json:"-"`
 }
 type Catalog struct {
 	Operations    []Operation
@@ -90,6 +91,7 @@ func Parse(data []byte) (*Catalog, error) {
 				}
 			}
 			o.FileRoute = fileRoute(o.Method, path, op, c)
+			o.ResponseMedia = responseMedia(op, c)
 			c.Operations = append(c.Operations, o)
 		}
 	}
