@@ -2,9 +2,11 @@ package cli
 
 import (
 	"fmt"
+	"math"
 	"net/url"
 	"strings"
 
+	"github.com/ContractorKeith/slowbooks-cli/internal/catalog"
 	"github.com/ContractorKeith/slowbooks-cli/internal/client"
 	"github.com/ContractorKeith/slowbooks-cli/internal/commands"
 	"github.com/ContractorKeith/slowbooks-cli/internal/output"
@@ -45,10 +47,10 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 	}
 	cmd := &cobra.Command{Use: use, Short: row.Name, Args: usageArgs(cobra.ExactArgs(len(row.Args)))}
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		if row.List && (limit < 1 || (all && cmd.Flags().Changed("limit"))) {
+		if row.List && (limit < 1 || limit == math.MaxInt || (all && cmd.Flags().Changed("limit"))) {
 			return &output.Error{Code: "usage", Message: "use a positive --limit or --all"}
 		}
-		opts := callOptions{params: append([]string{}, params...)}
+		opts := callOptions{params: append([]string{}, params...), list: row.List, all: all, limit: limit}
 		path := row.Path
 		for i, arg := range row.Args {
 			if strings.Contains(path, "{"+arg+"}") {
@@ -60,16 +62,38 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 				opts.params = append(opts.params, arg+"="+args[i])
 			}
 		}
-		for i, flag := range row.Flags {
-			if cmd.Flags().Changed(flag.Name) {
-				opts.params = append(opts.params, flag.Param+"="+values[i])
+		opts.prepare = func(op catalog.Operation, query url.Values) error {
+			for i, flag := range row.Flags {
+				if !cmd.Flags().Changed(flag.Name) {
+					continue
+				}
+				param := flag.Param
+				if row.Name == "reports run" {
+					param = commands.ReportParam(op, flag.Name)
+				}
+				if param == "" {
+					return undeclaredParam(op, "--"+flag.Name)
+				}
+				query.Set(param, values[i])
 			}
+			for name := range query {
+				found := false
+				for _, p := range op.Params {
+					if p.In == "query" && p.Name == name {
+						found = true
+					}
+				}
+				if !found {
+					return undeclaredParam(op, name)
+				}
+			}
+			return nil
 		}
-		if row.List && !all {
-			opts.limit = limit
-		}
-		opts.render = func(data any) error {
+		opts.render = func(data any, serverMore bool) error {
 			summary := row.Name
+			if row.Name == "search" {
+				summary = "Search results for " + args[0]
+			}
 			if row.List {
 				if list, ok := data.([]any); ok {
 					total := len(list)
@@ -77,10 +101,14 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 					if !all && total > limit {
 						data = list[:limit]
 						summary = fmt.Sprintf("%d of %d shown; --all for everything", limit, total)
+						if serverMore {
+							summary = fmt.Sprintf("%d of %d+ shown; --all for everything", limit, limit)
+						}
 					}
 				}
 			}
 			s.w.Columns = row.Columns
+			defer func() { s.w.Columns = nil }()
 			return s.w.Success(data, summary, row.Next)
 		}
 		if row.Catalog {
@@ -93,7 +121,7 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 			for i, r := range reports {
 				data[i] = r
 			}
-			return opts.render(data)
+			return opts.render(data, false)
 		}
 		return s.runCall(cmd, []string{row.Method, path}, opts)
 	}
@@ -108,4 +136,14 @@ func (s *session) readCommand(row commands.Row, name string) *cobra.Command {
 		cmd.Flags().StringArrayVar(&params, "param", nil, "Report query parameter k=v (repeatable)")
 	}
 	return cmd
+}
+
+func undeclaredParam(op catalog.Operation, name string) error {
+	names := []string{}
+	for _, p := range op.Params {
+		if p.In == "query" {
+			names = append(names, p.Name)
+		}
+	}
+	return &output.Error{Code: "usage", Message: fmt.Sprintf("%s has no target on %s; declared query parameters: %s", name, op.Path, strings.Join(names, ", "))}
 }

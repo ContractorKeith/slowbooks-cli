@@ -44,8 +44,8 @@ func Reads() []Row {
 	}
 	return append(rows,
 		Row{Name: "reports list", Method: "GET", Catalog: true, List: true, Noun: "reports", Columns: []string{"name", "summary"}, Next: []string{"sbp reports run <name>"}},
-		Row{Name: "reports run", Method: "GET", Path: "/api/reports/{name}", Args: []string{"name"}, Flags: []Flag{{"from", "start_date"}, {"to", "end_date"}}, Next: []string{"sbp reports list"}},
-		Row{Name: "search", Method: "GET", Path: "/api/search", Args: []string{"q"}, Noun: "results", List: true, Next: []string{"sbp customers show <id>"}},
+		Row{Name: "reports run", Method: "GET", Path: "/api/reports/{name}", Args: []string{"name"}, Flags: []Flag{{Name: "from"}, {Name: "to"}}, Next: []string{"sbp reports list"}},
+		Row{Name: "search", Method: "GET", Path: "/api/search", Args: []string{"q"}, Noun: "results", Next: []string{"sbp customers show <id>"}},
 	)
 }
 

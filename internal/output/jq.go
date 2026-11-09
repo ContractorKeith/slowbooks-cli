@@ -1,8 +1,11 @@
 package output
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/itchyny/gojq"
 )
@@ -30,21 +33,59 @@ func (w *Writer) filter(value any) error {
 		return err
 	}
 	var input any
-	if err = json.Unmarshal(raw, &input); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err = decoder.Decode(&input); err != nil {
 		return err
 	}
-	iter := w.jq.Run(input)
-	encoder := json.NewEncoder(w.Out)
-	for {
+	ctx := w.ctx
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	timeout := w.timeout
+	if timeout <= 0 {
+		timeout = 120 * time.Second
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	iter := w.jq.RunWithContext(ctx, input)
+	remaining := 64 << 20
+	for count := 0; ; count++ {
+		if ctx.Err() != nil {
+			return jqBound("context cancelled or time limit exceeded")
+		}
 		value, ok := iter.Next()
 		if !ok {
+			if ctx.Err() != nil {
+				return jqBound("context cancelled or time limit exceeded")
+			}
 			return nil
+		}
+		if ctx.Err() != nil {
+			return jqBound("context cancelled or time limit exceeded")
+		}
+		if count >= 100000 {
+			return jqBound("output exceeds 100000 results")
 		}
 		if err, ok := value.(error); ok {
 			return &Error{Code: "usage", Message: fmt.Sprintf("--jq: %v", err)}
 		}
-		if err = encoder.Encode(value); err != nil {
+		encoded, err := json.Marshal(value)
+		if err != nil {
+			return err
+		}
+		if len(encoded)+1 > remaining {
+			return jqBound("output exceeds 64 MiB")
+		}
+		remaining -= len(encoded) + 1
+		if _, err := w.Out.Write(append(encoded, '\n')); err != nil {
 			return err
 		}
 	}
 }
+
+// SetContext bounds jq evaluation by the command's cancellation and timeout.
+func (w *Writer) SetContext(ctx context.Context, timeout time.Duration) {
+	w.ctx, w.timeout = ctx, timeout
+}
+func jqBound(message string) error { return &Error{Code: "usage", Message: "--jq: " + message} }

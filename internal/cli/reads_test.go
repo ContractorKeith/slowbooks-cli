@@ -81,9 +81,9 @@ func TestReadLimitsAndQueryFlags(t *testing.T) {
 		{[]string{"expenses", "list"}, 50, "", ""},
 		{[]string{"expenses", "list", "--limit", "2"}, 2, "", ""},
 		{[]string{"expenses", "list", "--all"}, 55, "", ""},
-		{[]string{"invoices", "list", "--status", "open"}, 1, "50", "open"},
-		{[]string{"bills", "list", "--limit", "2"}, 1, "2", ""},
-		{[]string{"payments", "list", "--all"}, 1, "", ""},
+		{[]string{"invoices", "list", "--status", "open"}, 1, "51", "open"},
+		{[]string{"bills", "list", "--limit", "2"}, 1, "3", ""},
+		{[]string{"payments", "list", "--all"}, 1, "500", ""},
 	} {
 		code, out, _ = invoke(t, "", tc.args...)
 		var result struct {
@@ -108,8 +108,8 @@ func TestReadLimitsAndQueryFlags(t *testing.T) {
 	if code != 0 || u.Query().Get("start_date") != "2026-01-01" || u.Query().Get("end_date") != "2026-11-09" || u.Query().Get("basis") != "cash" {
 		t.Fatal(code, out, u)
 	}
-	// A search object passes through even with a limit.
-	code, out, _ = invoke(t, "", "search", "Acme", "--limit", "1")
+	// Search returns its server object without list flags.
+	code, out, _ = invoke(t, "", "search", "Acme")
 	if code != 0 || !strings.Contains(out, `"data":{"customers"`) {
 		t.Fatal(code, out)
 	}

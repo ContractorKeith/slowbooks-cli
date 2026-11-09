@@ -38,6 +38,9 @@ func checkDrift(path string) error {
 			if !found {
 				return fmt.Errorf("missing profit-loss report")
 			}
+			if err := checkReportMappings(cat); err != nil {
+				return err
+			}
 			continue
 		}
 		var match *catalog.Operation
@@ -50,6 +53,9 @@ func checkDrift(path string) error {
 		}
 		if match == nil {
 			return fmt.Errorf("%s: missing %s %s", row.Name, row.Method, row.Path)
+		}
+		if err := checkColumns(cat, row); err != nil {
+			return err
 		}
 		for _, arg := range row.Args {
 			location := "query"

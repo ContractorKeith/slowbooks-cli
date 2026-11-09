@@ -2,9 +2,7 @@ package cli
 
 import (
 	"encoding/json"
-	"mime"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/ContractorKeith/slowbooks-cli/internal/catalog"
@@ -33,7 +31,9 @@ type callOptions struct {
 	data, key                          string
 	dry, allowUnknown, keySet, dataSet bool
 	limit                              int
-	render                             func(any) error
+	list, all                          bool
+	prepare                            func(catalog.Operation, url.Values) error
+	render                             func(any, bool) error
 }
 
 func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) error {
@@ -100,11 +100,9 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	if (op.Keyed || catalog.IsKeyed(method, target.Path)) && method != "GET" && method != "HEAD" && strings.TrimSpace(opts.key) == "" {
 		return &output.Error{Code: "usage", Message: "this operation requires --key", Hint: "supply --key <payment-key>; reuse the same key when rerunning"}
 	}
-	if opts.limit > 0 {
-		for _, p := range op.Params {
-			if p.In == "query" && p.Name == "limit" {
-				query.Set("limit", strconv.Itoa(opts.limit))
-			}
+	if opts.prepare != nil {
+		if err := opts.prepare(op, query); err != nil {
+			return err
 		}
 	}
 	target.RawQuery = query.Encode()
@@ -123,21 +121,12 @@ func (s *session) runCall(cmd *cobra.Command, args []string, opts callOptions) e
 	if opts.dry {
 		return s.w.Success(preview, "Dry run; no request sent", nil)
 	}
-	response, err := cl.DoResponse(cmd.Context(), method, target.String(), body, opts.key)
+	result, more, err := s.callResult(cmd, cl, method, target, body, opts, op)
 	if err != nil {
 		return err
 	}
-	var result any
-	if len(response.Data) > 0 && method != "HEAD" {
-		media, _, _ := mime.ParseMediaType(response.ContentType)
-		if method != "GET" && media != "application/json" && !strings.HasSuffix(media, "+json") {
-			result = string(response.Data)
-		} else if json.Unmarshal(response.Data, &result) != nil {
-			return &output.Error{Code: "error", Message: "invalid JSON from server"}
-		}
-	}
 	if opts.render != nil {
-		return opts.render(result)
+		return opts.render(result, more)
 	}
 	return s.w.Success(result, method+" "+target.Path, nil)
 }

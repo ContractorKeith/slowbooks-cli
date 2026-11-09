@@ -53,6 +53,9 @@ func (s *Server) readFixture(w http.ResponseWriter, r *http.Request) bool {
 		_, _ = w.Write([]byte(`{"detail":"Not found"}`))
 		return true
 	}
+	if skip, err := strconv.Atoi(r.URL.Query().Get("skip")); err == nil && skip > 0 {
+		rows = rows[min(skip, len(rows)):]
+	}
 	if n, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil && n > 0 && n < len(rows) {
 		rows = rows[:n]
 	}

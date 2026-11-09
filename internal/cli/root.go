@@ -31,9 +31,11 @@ func NewRoot(w *output.Writer, build Build) *cobra.Command {
 			s.flags.CompanySet = cmd.Flags().Changed("company")
 			s.flags.TimeoutSet = cmd.Flags().Changed("timeout")
 			s.flags.URLSet = cmd.Flags().Changed("url")
-			if _, e := config.Timeout(s.flags); e != nil {
+			timeout, e := config.Timeout(s.flags)
+			if e != nil {
 				return e
 			}
+			w.SetContext(cmd.Context(), timeout)
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {

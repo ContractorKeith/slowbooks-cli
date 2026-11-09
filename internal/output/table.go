@@ -1,11 +1,12 @@
 package output
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
-	"text/tabwriter"
+	"unicode"
 )
 
 // human normalizes typed values before choosing an object view or table.
@@ -15,7 +16,9 @@ func (w *Writer) human(data any) error {
 		return err
 	}
 	var value any
-	if err = json.Unmarshal(raw, &value); err != nil {
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.UseNumber()
+	if err = decoder.Decode(&value); err != nil {
 		return err
 	}
 	if list, ok := value.([]any); ok && len(list) > 0 {
@@ -49,7 +52,7 @@ func (w *Writer) human(data any) error {
 	}
 	if fields, ok := value.(map[string]any); ok {
 		for _, key := range sortedKeys(fields) {
-			if _, err = fmt.Fprintf(w.Out, "%s: %s\n", key, cell(fields[key])); err != nil {
+			if _, err = fmt.Fprintf(w.Out, "%s: %s\n", escapeControls(key), cell(fields[key])); err != nil {
 				return err
 			}
 		}
@@ -60,31 +63,51 @@ func (w *Writer) human(data any) error {
 }
 
 func (w *Writer) table(rows []map[string]any, columns []string) error {
-	tw := tabwriter.NewWriter(w.Out, 0, 4, 2, ' ', 0)
-	if _, err := fmt.Fprintln(tw, strings.Join(columns, "\t")); err != nil {
-		return err
+	cells := make([][]string, 1, len(rows)+1)
+	cells[0] = make([]string, len(columns))
+	for i, key := range columns {
+		cells[0][i] = escapeControls(key)
 	}
 	for _, row := range rows {
 		values := make([]string, len(columns))
-		for i, k := range columns {
-			values[i] = cell(row[k])
+		for i, key := range columns {
+			values[i] = cell(row[key])
 		}
-		if _, err := fmt.Fprintln(tw, strings.Join(values, "\t")); err != nil {
+		cells = append(cells, values)
+	}
+	widths := make([]int, len(columns))
+	for _, row := range cells {
+		for i, value := range row {
+			widths[i] = max(widths[i], displayWidth(value))
+		}
+	}
+	for _, row := range cells {
+		for i, value := range row {
+			if _, err := fmt.Fprint(w.Out, value); err != nil {
+				return err
+			}
+			if i < len(row)-1 {
+				if _, err := fmt.Fprint(w.Out, strings.Repeat(" ", widths[i]-displayWidth(value)+2)); err != nil {
+					return err
+				}
+			}
+		}
+		if _, err := fmt.Fprintln(w.Out); err != nil {
 			return err
 		}
 	}
-	return tw.Flush()
+	return nil
 }
 func scalar(v any) bool {
 	switch v.(type) {
-	case nil, string, bool, float64:
+	case nil, string, bool, float64, json.Number:
 		return true
 	}
 	return false
 }
 func cell(v any) string {
 	if s, ok := v.(string); ok {
-		return strings.NewReplacer("\t", "\\t", "\r", "\\r", "\n", "\\n", "\x1b", "\\u001b").Replace(s)
+		return escapeControls(s)
 	}
 	raw, _ := json.Marshal(v)
 	return string(raw)
@@ -96,4 +119,24 @@ func sortedKeys(fields map[string]any) []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+func escapeControls(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if unicode.IsControl(r) {
+			switch r {
+			case '\n':
+				b.WriteString(`\n`)
+			case '\r':
+				b.WriteString(`\r`)
+			case '\t':
+				b.WriteString(`\t`)
+			default:
+				fmt.Fprintf(&b, `\u%04x`, r)
+			}
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }

@@ -11,7 +11,12 @@ no color. `--jq <expr>` filters the full success envelope by default (for exampl
 strings; `empty` emits nothing. jq parse, compile and evaluation errors exit 2.
 Parse and compile errors are checked before requests or mutations. Errors always
 retain their full envelope, bypassing jq; a streaming evaluation error may follow
-already emitted results.
+already emitted results. Evaluation uses the command context and the configured
+`--timeout` (including the timeout environment variable). Output is capped at
+100,000 results and 64 MiB including newlines; cancellation, timeout, and cap
+failures exit 2 with a clear jq error. Shared call decoding preserves JSON numbers through named/generic reads, quiet
+output, and tables. jq receives exact integers, including IDs beyond 2^53;
+jq arithmetic on non-integer numbers uses gojq's floating-point semantics.
 
 Success (all fields are always present; `next` is an array, including when empty):
 
@@ -122,16 +127,32 @@ server versions with a hash suffix; reported versions retain the server's value.
 
 M3 named reads use the same request path as `ops call`. Lists default to 50 rows;
 `--limit N` requires a positive N, and `--all` cannot be combined with `--limit`.
-The limit is sent only when the operation declares a `limit` query parameter,
-and arrays are also trimmed locally. `--all` sends no limit and skips local
-trimming; server defaults still apply. Counts describe the received array:
-`N of M shown; --all for everything` when locally trimmed, `M <noun>` otherwise.
-Non-array responses pass through unchanged. TTY tables use the named command's
-columns, or up to five scalar fields in alphabetical order for generic results.
+For operations declaring `limit`, the client requests one extra row to detect
+truncation. The summary says `N of N+ shown; --all for everything` when this
+probe finds more rows. Lists without server limits trim locally and report
+`N of M shown; --all for everything`; otherwise the summary is `M <noun>`.
+Non-array responses pass through unchanged.
+
+`--all` follows declared `skip` or `offset` paging until a short page. Page size
+uses the declared maximum, otherwise the declared default, otherwise 500. If a
+limited operation has no paging parameter, `--all` requests that size and warns
+on stderr when the response fills it, since results may be incomplete. Ordinary
+list requests also honor a declared maximum and page when necessary to satisfy
+`--limit`. Operations without a limit parameter receive none.
+
+TTY tables use the named command's columns, or up to five scalar fields in
+alphabetical order for generic results. All keys, headers, and cells escape
+control characters. Padding uses a small local display-width function covering
+common CJK, Hangul, fullwidth and emoji ranges, plus zero-width combining marks;
+complex joined emoji sequences and terminal-specific widths may vary.
 
 Invoices and bills expose `--status`; the pinned server has no `since` parameter.
 `reports list` discovers direct JSON report operations from the catalog, since
-there is no report index API. `reports run <name>` calls `/api/reports/<name>`;
-`--from` and `--to` map to `start_date` and `end_date`, while repeatable
-`--param k=v` passes report-specific query parameters. Use `ops describe` to
-check which parameters a report supports. Search sends the query as `q`.
+there is no report index API. `reports run <name>` calls `/api/reports/<name>`.
+Date flags use the chosen operation's declared parameters: `--from` targets
+`start_date`; `--to` targets `end_date`, `as_of_date`, or `as_of`, in that order.
+A flag with no declared target exits 2 and names the declared query parameters;
+for year-based reports use `--param year=2026`. Named report calls reject
+undeclared `--param` names. The generic `api`/`ops call` layer remains permissive.
+Search sends the query as `q`, returns its grouped response unchanged, and has
+no `--limit` or `--all` flags.

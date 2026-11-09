@@ -1,10 +1,12 @@
 package output
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
+	"time"
 
 	"github.com/itchyny/gojq"
 	"golang.org/x/term"
@@ -19,6 +21,8 @@ type Writer struct {
 	TTY     bool
 	Columns []string
 	jq      *gojq.Code
+	ctx     context.Context
+	timeout time.Duration
 }
 
 // New detects a terminal only for actual file descriptors.
