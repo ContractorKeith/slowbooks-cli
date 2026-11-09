@@ -33,7 +33,7 @@ func NewDownloadFile(destination string) (*DownloadFile, error) {
 	if destination != "" {
 		dir = filepath.Dir(destination)
 	}
-	cleanupDownloads(dir)
+	cleanupDownloads(dir, filepath.Base(destination))
 	file, err := os.CreateTemp(dir, ".sbp-download-*")
 	if err != nil {
 		return nil, destinationError(destination, err)

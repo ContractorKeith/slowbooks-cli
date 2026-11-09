@@ -1,6 +1,7 @@
 package output
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -69,5 +70,34 @@ func TestDownloadCleanupPreservesSymlinks(t *testing.T) {
 	}
 	if b, err := os.ReadFile(target); err != nil || string(b) != "original" {
 		t.Fatal("target changed", string(b), err)
+	}
+}
+
+func TestDownloadCleanupPreservesRequestedDestination(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, ".sbp-download-result")
+	if err := writeOwnedDownloadFixture(target, []byte("original")); err != nil {
+		t.Fatal(err)
+	}
+	old := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(target, old, old); err != nil {
+		t.Fatal(err)
+	}
+	f, err := NewDownloadFile(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer f.Abort()
+	if b, err := os.ReadFile(target); err != nil || string(b) != "original" {
+		t.Fatal("cleanup changed destination", string(b), err)
+	}
+	if _, err = f.Write([]byte("replacement")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.Save(context.Background(), "", false); ExitCode(err) != 2 {
+		t.Fatal("lost no-clobber protection", err)
+	}
+	if b, err := os.ReadFile(target); err != nil || string(b) != "original" {
+		t.Fatal(string(b), err)
 	}
 }

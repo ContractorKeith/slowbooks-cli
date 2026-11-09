@@ -228,7 +228,8 @@ stream when the command fails.
 
 Before staging a download, sbp removes `.sbp-download-*` regular files in that
 directory that are older than one hour and owned by the current user. Cleanup
-skips symlinks and leaves fresh files, other names, and other owners untouched.
+skips symlinks and preserves the requested output file, fresh files, other names,
+and other owners.
 Files whose ownership cannot be checked or which cannot be removed are skipped.
 
 SIGINT/Ctrl-C and SIGTERM cancel active downloads, remove staged files, and exit
