@@ -2,21 +2,9 @@ package output
 
 import (
 	"context"
-	"errors"
 	"io"
 	"os"
-	"runtime"
-	"syscall"
 )
-
-func unsupportedLink(err error) bool {
-	if errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.ENOTSUP) || errors.Is(err, syscall.EXDEV) {
-		return true
-	}
-	// Windows filesystems may report invalid function, not supported, or a
-	// different device using Win32 codes instead of Unix errno aliases.
-	return runtime.GOOS == "windows" && (errors.Is(err, syscall.Errno(1)) || errors.Is(err, syscall.Errno(50)) || errors.Is(err, syscall.Errno(17)))
-}
 
 // copyExclusive supports filesystems without hard links. A failed copy removes
 // the newly created target, and O_EXCL preserves any existing destination.

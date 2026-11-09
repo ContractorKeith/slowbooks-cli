@@ -97,8 +97,23 @@ managed token. Failed final token operations restore the previous profile data.
 Deleting the default promotes the alphabetically first remaining profile and
 names that default in the logout summary.
 
-Tokens are at most 4096 bytes, excluding an optional LF or CRLF. Non-regular
-files are refused before reading; Unix opens are nonblocking to guard against
+Profile names are unique ignoring ASCII case; a conflicting login exits 2 and
+names the existing profile. New managed token paths and catalog profile directories
+use lowercase names; legacy managed token paths remain usable. Relative profile
+`token_file` paths resolve against the config directory. Login refuses to replace
+an existing token not managed by the selected profile (exit 2, naming the file),
+and logout preserves external tokens.
+
+UTF-8 BOMs are accepted in profiles and token files. UTF-16 token files are refused
+with a UTF-8/ASCII hint. Login moves malformed or empty profiles aside to
+`profiles.json.corrupt-<UTC timestamp>` and reports the backup path on stderr
+before starting a fresh store; other
+commands name the file and the login recovery command. On Windows, config readers
+share deletion, and replacements retry sharing/access-denied errors for at most
+280 ms of backoff. Doctor reports inherited ACLs instead of Unix mode bits there.
+
+Tokens are at most 4096 bytes, excluding an optional UTF-8 BOM and LF or CRLF.
+Non-regular files are refused before reading; Unix opens are nonblocking to guard against
 replacement with a FIFO. File-access errors exit 3 and identify the path.
 An environment URL without a token file names `SLOWBOOKS_TOKEN_FILE` in its hint;
 a missing server URL is a usage error (exit 2).
@@ -186,18 +201,21 @@ Success data contains `path`, `bytes`, `content_type`, and the sanitized server 
 The server's RFC 6266 filename (including `filename*`) takes precedence; missing
 or unusable filenames fall back to the final URL path segment, then `download`.
 Names follow Windows-safe rules on every OS: reserved characters become `_`,
-device names gain an `_` prefix, trailing dots/spaces are stripped, and `-`
-becomes `_-`. Names are capped at 255 UTF-8 bytes, retaining the extension where
-it fits. Directory separators, traversal, leading dots, and controls are removed.
+device names (including CONIN$, CONOUT$, COM/LPT0–9 and superscript ¹²³) gain
+an `_` prefix, trailing dots/spaces are stripped, and `-`/`~` gain an `_` prefix.
+Unicode format characters (category Cf) are removed. Names are capped at 255
+UTF-8 bytes, retaining the extension where it fits. Directory separators, traversal, leading dots, and controls are removed.
 Without `-o`, the file is saved in the current directory. Existing destinations
 exit 2 unless `--force` is set. Files are staged in the destination directory
 and installed atomically after a successful transfer; failures leave the existing
 file intact. No-clobber installation uses an atomic hard link to avoid a race
-between checking and renaming. Filesystems without hard links use exclusive
-creation and copying instead; failed copies remove the new target. That fallback
+between checking and renaming. Any hard-link failure other than an existing
+target uses exclusive creation and copying instead; failed copies remove the new target. That fallback
 can expose the target during copying. `--force` uses rename. Completed files use
 0644 permissions on Unix (fallback creation also respects the process umask).
 Local destination failures exit 2 with the destination named and no staging paths.
+Directory destinations report that they are directories; a forced replacement of
+a file held open without delete sharing reports that the file is in use.
 
 `-o -` reserves stdout for raw bytes. With `--json`, the success envelope goes to
 stderr (even with `--quiet`); without it there is no success envelope. Errors and
@@ -207,6 +225,11 @@ Staged files rewind before retrying an interrupted body. Raw stdout cannot be
 rewound: after any bytes have been emitted, an interrupted stream exits 8 without
 replaying bytes and is marked non-retryable. Consumers must discard that partial
 stream when the command fails.
+
+Before staging a download, sbp removes `.sbp-download-*` regular files in that
+directory that are older than one hour and owned by the current user. Cleanup
+skips symlinks and leaves fresh files, other names, and other owners untouched.
+Files whose ownership cannot be checked or which cannot be removed are skipped.
 
 SIGINT/Ctrl-C and SIGTERM cancel active downloads, remove staged files, and exit
 8 (`network`, non-retryable). Broken stdout pipes also exit 8 with

@@ -51,6 +51,9 @@ func (s *session) login(cmd *cobra.Command, args []string) error {
 	if e != nil {
 		return e
 	}
+	if e = s.warn(p.RecoveryNotice); e != nil {
+		return e
+	}
 	if strings.TrimSpace(p.URL) == "" {
 		return &output.Error{Code: "usage", Message: "server URL is required", Hint: "run sbp auth login --url <server>"}
 	}

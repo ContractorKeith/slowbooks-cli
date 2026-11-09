@@ -33,6 +33,7 @@ func NewDownloadFile(destination string) (*DownloadFile, error) {
 	if destination != "" {
 		dir = filepath.Dir(destination)
 	}
+	cleanupDownloads(dir)
 	file, err := os.CreateTemp(dir, ".sbp-download-*")
 	if err != nil {
 		return nil, destinationError(destination, err)
@@ -58,12 +59,15 @@ func (f *DownloadFile) Save(ctx context.Context, filename string, force bool) (s
 	if err := f.file.Close(); err != nil {
 		return "", destinationError(target, err)
 	}
+	if info, err := os.Stat(target); err == nil && info.IsDir() {
+		return "", &Error{Code: "usage", Message: fmt.Sprintf("destination %q is a directory", target)}
+	}
 	var err error
 	if force {
 		err = os.Rename(f.file.Name(), target)
 	} else {
 		err = f.link(f.file.Name(), target)
-		if unsupportedLink(err) {
+		if err != nil && !os.IsExist(err) {
 			err = copyExclusive(ctx, f.file.Name(), target)
 		}
 	}
@@ -82,6 +86,9 @@ func destinationError(target string, err error) error {
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return &Error{Code: "network", Message: "download cancelled", Retryable: false}
+	}
+	if downloadInUse(target, err) {
+		return &Error{Code: "usage", Message: fmt.Sprintf("cannot save download to %q: file is in use", target), Hint: "close the file in the other process and retry"}
 	}
 	if target == "" {
 		target = "current directory"
