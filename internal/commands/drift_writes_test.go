@@ -40,6 +40,9 @@ func checkWriteSchema(cat *catalog.Catalog, row Row) error {
 				return fmt.Errorf("%s: missing allocation %s", row.Name, field)
 			}
 		}
+		// Keyed comes from the hard-coded local list: this snapshot declares no
+		// Idempotency-Key header. This checks local policy; e2e replay is the
+		// real verification that the server deduplicates the payment.
 		if !op.Keyed {
 			return fmt.Errorf("%s: missing key contract", row.Name)
 		}

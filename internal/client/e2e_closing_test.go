@@ -3,9 +3,8 @@ package client
 import (
 	"context"
 	"encoding/json"
+	"net/http/cookiejar"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -26,7 +25,7 @@ func checkClosingDate(t *testing.T, admin *Client) {
 	}
 	original := settings["closing_date"]
 	if original == nil {
-		t.Fatal("closing_date setting absent")
+		original = json.RawMessage(`""`)
 	}
 	restore, _ := json.Marshal(map[string]json.RawMessage{"closing_date": original})
 	t.Cleanup(func() {
@@ -61,32 +60,64 @@ func checkClosingDate(t *testing.T, admin *Client) {
 	if err == nil || e.Code != "refused" || !strings.Contains(e.Message, "2026-01-31") {
 		t.Fatalf("closing date refusal: %v", err)
 	}
-	// Execute the CLI as a process to prove the same sentence and exit code survive.
-	binary := filepath.Join(t.TempDir(), "sbp")
-	build := exec.Command("go", "build", "-o", binary, "./cmd/sbp")
-	build.Dir = "../.."
-	if out, err := build.CombinedOutput(); err != nil {
-		t.Fatalf("build: %v %s", err, out)
+	t.Log("M5 closing-date HTTP refusal preserves the server sentence; setting restored at cleanup")
+}
+
+// TestE2EClosingDate gives the shell harness HTTP-only admin setup and teardown.
+func TestE2EClosingDate(t *testing.T) {
+	action := os.Getenv("SBP_E2E_CLOSING_ACTION")
+	if action == "" {
+		t.Skip("run scripts/e2e.sh")
 	}
-	cmd := exec.Command(binary, "invoices", "create", "--customer", customer.ID.String(), "--date", "2026-01-01", "--data", string(body), "--json")
-	cmd.Env = append(os.Environ(), "SLOWBOOKS_URL="+os.Getenv("SBP_E2E_URL"), "SLOWBOOKS_TOKEN_FILE="+os.Getenv("SBP_E2E_TOKEN"))
-	out, err := cmd.Output()
-	var exit *exec.ExitError
-	if err == nil {
-		t.Fatal("closed write succeeded")
+	server := os.Getenv("SBP_E2E_URL")
+	requireLoopback(t, server)
+	isolate(t)
+	ctx := context.Background()
+	admin, err := New(ctx, Options{URL: server, Version: "e2e"})
+	if err != nil {
+		t.Fatal(err)
 	}
-	var ok bool
-	exit, ok = err.(*exec.ExitError)
-	if !ok || exit.ExitCode() != 4 {
-		t.Fatalf("exit: %v %s", err, out)
+	admin.http.Jar, err = cookiejar.New(nil)
+	if err != nil {
+		t.Fatal(err)
 	}
-	var envelope struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
+	if _, err = admin.Do(ctx, "POST", "/api/auth/login", []byte(`{"password":"sbp-e2e-disposable-password"}`), ""); err != nil {
+		t.Fatal(err)
 	}
-	if json.Unmarshal(out, &envelope) != nil || envelope.Error.Message != e.Message {
-		t.Fatalf("message not preserved: %s", out)
+	state := os.Getenv("SBP_E2E_CLOSING_STATE")
+	switch action {
+	case "set":
+		raw, err := admin.Do(ctx, "GET", "/api/settings", nil, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		var settings map[string]json.RawMessage
+		if err = json.Unmarshal(raw, &settings); err != nil {
+			t.Fatal(err)
+		}
+		original := settings["closing_date"]
+		if original == nil {
+			original = json.RawMessage(`""`)
+		}
+		restore, _ := json.Marshal(map[string]json.RawMessage{"closing_date": original})
+		if err = os.WriteFile(state, restore, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = admin.Do(ctx, "PUT", "/api/settings", []byte(`{"closing_date":"2026-01-31"}`), ""); err != nil {
+			t.Fatal(err)
+		}
+	case "restore":
+		restore, err := os.ReadFile(state)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = admin.Do(ctx, "PUT", "/api/settings", restore, ""); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Remove(state); err != nil {
+			t.Fatal(err)
+		}
+	default:
+		t.Fatal("invalid closing-date action")
 	}
-	t.Log("M5 closing-date write refused with exit 4 and the server sentence; setting restored at cleanup")
 }

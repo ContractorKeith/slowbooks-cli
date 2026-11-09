@@ -3,6 +3,7 @@ package fakeserver
 
 import (
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"strings"
 	"sync"
@@ -17,13 +18,14 @@ type Request struct {
 }
 type Server struct {
 	mu        sync.Mutex
+	fixtures  fs.FS
 	requests  []Request
 	customers []json.RawMessage
 	replays   map[string]writeReplay
 }
 
 // New constructs a fake with an independent request recorder.
-func New() *Server { return &Server{} }
+func New() *Server { return &Server{fixtures: testdata.Files} }
 
 // Requests returns a snapshot safe to inspect while the server is running.
 func (s *Server) Requests() []Request {

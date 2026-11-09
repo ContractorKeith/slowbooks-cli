@@ -66,3 +66,25 @@ func TestQAWorktreesIgnored(t *testing.T) {
 		t.Fatalf("QA worktree not ignored: %v %s", e, out)
 	}
 }
+
+func TestAcceptanceNormalizerPreservesMoneySpelling(t *testing.T) {
+	isolate(t)
+	raw, err := os.ReadFile("../../scripts/accept.sh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	source := string(raw)
+	start := strings.Index(source, "normalize() {")
+	end := strings.Index(source[start:], "\n}") + start + 2
+	cmd := exec.Command("bash", "-c", source[start:end]+"\nnormalize")
+	cmd.Env = append(os.Environ(), "fake_url=http://127.0.0.1:1234")
+	cmd.Stdin = strings.NewReader(`{"url":"http://127.0.0.1:1234/api/payments","amount":1234.50,"allocation":0.10,"header":"Bearer \u003credacted\u003e"}` + "\n")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("normalizer: %v %s", err, out)
+	}
+	expected := `{"url":"<server>/api/payments","amount":1234.50,"allocation":0.10,"header":"Bearer \u003credacted\u003e"}` + "\n"
+	if string(out) != expected {
+		t.Fatalf("normalizer changed money or JSON escaping:\n%s", out)
+	}
+}

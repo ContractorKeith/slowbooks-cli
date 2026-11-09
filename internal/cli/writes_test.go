@@ -22,7 +22,7 @@ func writeArgs(row commands.Row) []string {
 		args = append(args, "--customer", "1")
 	}
 	if strings.HasSuffix(row.Name, "record") {
-		args = append(args, "--key", "check-1042", "--amount", "1234.50", "--apply", "1=0.30000000000000004", "--apply", "2=1234.20")
+		args = append(args, "--key", "check-1042", "--amount", "1234.50", "--apply", "1=0.30", "--apply", "2=1234.20")
 	}
 	return args
 }
@@ -60,7 +60,7 @@ func TestNamedWrites(t *testing.T) {
 				t.Fatal(last)
 			}
 			if strings.HasSuffix(row.Name, "record") {
-				if last.Header.Get("Idempotency-Key") != "check-1042" || !strings.Contains(string(last.Body), `"amount":1234.50`) || !strings.Contains(string(last.Body), `"amount":0.30000000000000004`) {
+				if last.Header.Get("Idempotency-Key") != "check-1042" || !strings.Contains(string(last.Body), `"amount":1234.50`) || !strings.Contains(string(last.Body), `"amount":0.30`) {
 					t.Fatal(last)
 				}
 				code, out, _ = invoke(t, "", args...)
@@ -106,7 +106,7 @@ func TestWriteDataOverridesAndSources(t *testing.T) {
 	if code, out, _ := invoke(t, "sbp_bookkeeper", "auth", "login", "--url", server); code != 0 {
 		t.Fatal(out)
 	}
-	body := `{"customer_id":9,"date":"2020-01-01","amount":"1234.50","allocations":[{"invoice_id":9,"amount":0.30000000000000004}]}`
+	body := `{"customer_id":9,"date":"2020-01-01","amount":"1234.50","allocations":[{"invoice_id":9,"amount":0.30}]}`
 	file := filepath.Join(t.TempDir(), "body.json")
 	if err := os.WriteFile(file, []byte(body), 0600); err != nil {
 		t.Fatal(err)
@@ -115,7 +115,7 @@ func TestWriteDataOverridesAndSources(t *testing.T) {
 		code, out, _ := invoke(t, body, "payments", "record", "--key", string(rune('a'+i)), "--data", source, "--customer", "9007199254740993", "--date", "2026-11-09")
 		reqs := fake.Requests()
 		raw := string(reqs[len(reqs)-1].Body)
-		if code != 0 || !strings.Contains(raw, `"amount":"1234.50"`) || !strings.Contains(raw, `"amount":0.30000000000000004`) || !strings.Contains(raw, `"customer_id":9007199254740993`) {
+		if code != 0 || !strings.Contains(raw, `"amount":"1234.50"`) || !strings.Contains(raw, `"amount":0.30`) || !strings.Contains(raw, `"customer_id":9007199254740993`) {
 			t.Fatal(code, out, raw)
 		}
 	}

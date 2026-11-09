@@ -3,10 +3,9 @@ package fakeserver
 import (
 	"bytes"
 	"encoding/json"
+	"io/fs"
 	"net/http"
 	"strings"
-
-	"github.com/ContractorKeith/slowbooks-cli/testdata"
 )
 
 type writeReplay struct{ body, result json.RawMessage }
@@ -53,9 +52,13 @@ func (s *Server) writeFixture(w http.ResponseWriter, r *http.Request, body json.
 			return true
 		}
 	}
-	raw, _ := testdata.Files.ReadFile("fake/" + kind + ".json")
+	raw, err := fs.ReadFile(s.fixtures, "fake/"+kind+".json")
 	var fixtures []json.RawMessage
-	_ = json.Unmarshal(raw, &fixtures)
+	if err != nil || json.Unmarshal(raw, &fixtures) != nil || len(fixtures) == 0 {
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(`{"detail":"Write fixture unavailable"}`))
+		return true
+	}
 	result := fixtures[0]
 	if void {
 		result = json.RawMessage(`{"id":1,"status":"void"}`)

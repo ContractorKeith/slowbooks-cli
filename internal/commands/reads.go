@@ -13,6 +13,8 @@ type Flag struct{ Name, Param string }
 type Row struct {
 	Name, Method, Path, Noun       string
 	Args                           []string
+	Required                       []string
+	AllocationID                   string
 	Flags                          []Flag
 	Next, Columns                  []string
 	List, Write, Catalog, Download bool

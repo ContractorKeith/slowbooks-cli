@@ -70,7 +70,7 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 		err = s.runCall(cmd, []string{row.Method, path}, opts)
 		if err != nil && name != "record" {
 			e := output.AsError(err)
-			if e.Code == "network" {
+			if e.Code == "network" && client.WriteReachedWire(err) {
 				e.Hint = "check sbp " + kind + " list --limit 5 before running this write again"
 			}
 			return e
@@ -80,11 +80,11 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 	cmd.Flags().StringVar(&data, "data", "", "JSON, @file or - for stdin; flags override fields")
 	cmd.Flags().BoolVar(&dry, "dry-run", false, "Preview without sending requests")
 	for i, flag := range row.Flags {
-		cmd.Flags().StringVar(&values[i], flag.Name, "", "Set "+flag.Param)
+		cmd.Flags().StringVar(&values[i], flag.Name, "", "Set "+flag.Param+" (must not be blank)")
 	}
 	if name == "record" {
 		cmd.Flags().StringVar(&key, "key", "", "Stable check number or bank reference")
-		cmd.Flags().StringArrayVar(&applies, "apply", nil, "Allocation ID=AMOUNT (repeatable)")
+		cmd.Flags().StringArrayVar(&applies, "apply", nil, "Allocation ID=AMOUNT; unique IDs, positive plain decimals with at most 2 fractional digits (repeatable)")
 	}
 	if row.Name == "payments void" {
 		cmd.Flags().BoolVar(&fee, "fee-refunded", false, "The payment fee was refunded")
@@ -92,7 +92,6 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 	return cmd
 }
 
-var decimalInput = regexp.MustCompile(`^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$`)
 var integerInput = regexp.MustCompile(`^[1-9][0-9]*$`)
 
 // writeData merges raw JSON fields so amounts and large IDs never pass through floats.
@@ -114,7 +113,12 @@ func writeData(cmd *cobra.Command, row commands.Row, values []string, data strin
 		value := values[i]
 		var raw []byte
 		if strings.HasSuffix(flag.Param, "_id") || flag.Param == "amount" {
-			valid := decimalInput.MatchString(value)
+			if flag.Param == "amount" {
+				if err := checkMoney(value, "--amount"); err != nil {
+					return nil, err
+				}
+			}
+			valid := true
 			if strings.HasSuffix(flag.Param, "_id") {
 				valid = integerInput.MatchString(value)
 			}
@@ -123,39 +127,36 @@ func writeData(cmd *cobra.Command, row commands.Row, values []string, data strin
 			}
 			raw = []byte(value)
 		} else {
+			if strings.TrimSpace(value) == "" {
+				return nil, &output.Error{Code: "usage", Message: "--" + flag.Name + " must not be blank"}
+			}
 			raw, _ = json.Marshal(value)
 		}
 		fields[flag.Param] = raw
 	}
 	if cmd.Flags().Changed("apply") {
 		allocations := []map[string]json.RawMessage{}
-		idField := "invoice_id"
-		if strings.HasPrefix(row.Name, "bill-payments") {
-			idField = "bill_id"
-		}
+		idField := row.AllocationID
 		for _, apply := range applies {
 			id, amount, ok := strings.Cut(apply, "=")
-			if !ok || !integerInput.MatchString(id) || !decimalInput.MatchString(amount) {
+			if !ok || !integerInput.MatchString(id) {
 				return nil, &output.Error{Code: "usage", Message: "--apply requires ID=AMOUNT"}
+			}
+			if err := checkMoney(amount, "--apply amount"); err != nil {
+				return nil, err
 			}
 			allocations = append(allocations, map[string]json.RawMessage{idField: json.RawMessage(id), "amount": json.RawMessage(amount)})
 		}
 		fields["allocations"], _ = json.Marshal(allocations)
 	}
-	if len(row.Flags) > 0 {
-		required := []string{"date"}
-		if strings.HasPrefix(row.Name, "bill-payments") {
-			required = append(required, "vendor_id", "amount")
-		} else {
-			required = append(required, "customer_id")
-			if strings.HasSuffix(row.Name, "record") {
-				required = append(required, "amount")
-			}
+	for _, field := range row.Required {
+		if len(fields[field]) == 0 || bytes.Equal(bytes.TrimSpace(fields[field]), []byte("null")) {
+			return nil, &output.Error{Code: "usage", Message: "missing required field " + field, Hint: "supply its flag or --data field"}
 		}
-		for _, field := range required {
-			if len(fields[field]) == 0 || bytes.Equal(bytes.TrimSpace(fields[field]), []byte("null")) {
-				return nil, &output.Error{Code: "usage", Message: "missing required field " + field, Hint: "supply its flag or --data field"}
-			}
+	}
+	if row.AllocationID != "" {
+		if err := checkPaymentMoney(fields, row.AllocationID); err != nil {
+			return nil, err
 		}
 	}
 	if len(fields) == 0 && !cmd.Flags().Changed("data") {

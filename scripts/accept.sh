@@ -44,7 +44,7 @@ chmod 600 "$scratch/input.token"
 "$scratch/sbp" auth login --url "$SLOWBOOKS_URL" --company acme < "$scratch/input.token" > "$scratch/login.json"
 # Normalize only volatile URL and scratch paths; assertions remain in goldens.
 normalize() {
-  python3 -c 'import json,sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>").replace(os.path.normpath(os.environ["SLOWBOOKS_CACHE_DIR"]),"<cache>"); print(json.dumps(json.loads(value),separators=(",",":")))' "$fake_url"
+  python3 -c 'import sys,os; value=sys.stdin.read().replace(sys.argv[1],"<server>").replace(os.path.normpath(os.environ["SLOWBOOKS_CONFIG_DIR"]),"<config>").replace(os.path.normpath(os.environ["SLOWBOOKS_CACHE_DIR"]),"<cache>"); sys.stdout.write(value)' "$fake_url"
 }
 unset SLOWBOOKS_URL
 echo '== goldens'

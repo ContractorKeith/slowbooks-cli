@@ -24,6 +24,9 @@ compose() { docker compose --env-file "$run/compose.env" -f "$checkout/docker-co
 passed=0
 cleanup() {
   status=$?
+  if test -f "$run/closing.json"; then
+    SBP_E2E_CLOSING_ACTION=restore go test ./internal/client -run '^TestE2EClosingDate$' -count=1 || status=1
+  fi
   if test "$keep" = 1 && test "$passed" = 1; then
     echo "kept: $SBP_E2E_URL"
     echo "bookkeeper token file: $SBP_E2E_TOKEN"
@@ -43,6 +46,7 @@ export SBP_E2E_URL="http://127.0.0.1:$APP_PORT"
 export SBP_E2E_TOKEN="$run/bookkeeper.token"
 export SBP_E2E_READONLY_TOKEN="$run/readonly.token"
 export SBP_E2E_SNAPSHOT="$run/openapi.json"
+export SBP_E2E_CLOSING_STATE="$run/closing.json"
 # HTTP bootstrap and version checks live at the same client seam as unit tests.
 go test ./internal/client -run '^TestE2E$' -count=1 -v
 # M1: use only this stack's tokens and isolated CLI state.
@@ -137,6 +141,13 @@ status=0
 SLOWBOOKS_TOKEN_FILE="$SBP_E2E_READONLY_TOKEN" "$run/sbp" invoices create --customer "$customer_id" --date "$today" > "$run/m5-readonly.json" || status=$?
 test "$status" -eq 4
 python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="refused" and e["message"]==e["detail"]' "$run/m5-readonly.json"
+SBP_E2E_CLOSING_ACTION=set go test ./internal/client -run '^TestE2EClosingDate$' -count=1
+status=0
+"$run/sbp" invoices create --customer "$customer_id" --date 2026-01-01 --data '{"lines":[{"description":"Closed","quantity":"1","rate":"10","amount":"10"}]}' > "$run/m5-closed.json" || status=$?
+test "$status" -eq 4
+python3 -c 'import json,sys; e=json.load(open(sys.argv[1]))["error"]; assert e["code"]=="refused" and e["message"]==e["detail"] and "2026-01-31" in e["message"]' "$run/m5-closed.json"
+SBP_E2E_CLOSING_ACTION=restore go test ./internal/client -run '^TestE2EClosingDate$' -count=1
+echo 'e2e: M5 closing-date CLI refusal preserves the server sentence; setting restored'
 echo 'e2e: M5 invoice create, payment replay/count, key conflict, voids and readonly refusal passed'
 if test "${SBP_E2E_CAPTURE_SNAPSHOT:-0}" = 1; then
   cp "$SBP_E2E_SNAPSHOT" testdata/openapi-2.31.10.json
