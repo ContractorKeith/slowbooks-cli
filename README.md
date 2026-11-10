@@ -49,7 +49,7 @@ slowbooks auth login --url https://your-server.example
 slowbooks doctor
 ```
 
-An existing Switchboard connection also works: set `SLOWBOOKS_URL` and
+An existing token file also works: set `SLOWBOOKS_URL` and
 `SLOWBOOKS_TOKEN_FILE` (0600 on Linux/macOS). No profile required.
 Use `--company` or `SLOWBOOKS_COMPANY` with the exact served-company `file` from
 `/api/companies`. Display names and database names cannot select books. Servers

@@ -22,7 +22,7 @@ mkdir -p "$HOME"
 # Real server: scripts/e2e.sh --keep prints URL and token files (Linux: via newgrp docker).
 ```
 
-Never use the reviewer's legacy `~/.config/sbp` (real Switchboard tokens) or books.kodade.com
+Never use the reviewer's real token files or a live company server
 except through `scripts/smoke-live.sh`, which voids what it creates.
 
 ## Platforms
