@@ -24,6 +24,11 @@ func checkWriteSchema(cat *catalog.Catalog, row Row) error {
 	}
 	op, _ := cat.Lookup(row.Method, row.Path)
 	props := schemaProperties(cat.Document, op.Body, 0)
+	if row.ReferenceField != "" {
+		if _, ok := props[row.ReferenceField]; !ok {
+			return fmt.Errorf("%s: missing payment reference field %s", row.Name, row.ReferenceField)
+		}
+	}
 	for _, flag := range row.Flags {
 		if _, ok := props[flag.Param]; !ok {
 			return fmt.Errorf("%s: missing body field %s", row.Name, flag.Param)

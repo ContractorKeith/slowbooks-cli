@@ -6,8 +6,8 @@ import "strings"
 func Writes() []Row {
 	rows := []Row{
 		{Name: "invoices create", Method: "POST", Path: "/api/invoices", Write: true, Required: []string{"customer_id", "date"}, Flags: []Flag{{"customer", "customer_id"}, {"date", "date"}, {"due", "due_date"}, {"memo", "notes"}}},
-		{Name: "payments record", Method: "POST", Path: "/api/payments", Write: true, Required: []string{"customer_id", "date", "amount"}, AllocationID: "invoice_id", Flags: []Flag{{"customer", "customer_id"}, {"amount", "amount"}, {"date", "date"}, {"method", "method"}}},
-		{Name: "bill-payments record", Method: "POST", Path: "/api/bill-payments", Write: true, Required: []string{"vendor_id", "date", "amount"}, AllocationID: "bill_id", Flags: []Flag{{"vendor", "vendor_id"}, {"amount", "amount"}, {"date", "date"}}},
+		{Name: "payments record", Method: "POST", Path: "/api/payments", Write: true, Required: []string{"customer_id", "date", "amount"}, AllocationID: "invoice_id", ReferenceField: "reference", Flags: []Flag{{"customer", "customer_id"}, {"amount", "amount"}, {"date", "date"}, {"method", "method"}}},
+		{Name: "bill-payments record", Method: "POST", Path: "/api/bill-payments", Write: true, Required: []string{"vendor_id", "date", "amount"}, AllocationID: "bill_id", ReferenceField: "check_number", Flags: []Flag{{"vendor", "vendor_id"}, {"amount", "amount"}, {"date", "date"}}},
 	}
 	for _, read := range Reads() {
 		switch read.Name {

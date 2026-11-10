@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":1,"is_voided":true},"summary":"bill-payments void","next":["slowbooks bill-payments show 1"]}
+{"ok":true,"data":{"id":1,"is_voided":true},"summary":"Voided bill payment 1","next":["slowbooks bill-payments show 1"]}
