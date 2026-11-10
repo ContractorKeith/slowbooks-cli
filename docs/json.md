@@ -154,7 +154,9 @@ An environment URL without a token file names `SLOWBOOKS_TOKEN_FILE` in its hint
 a missing server URL is a usage error (exit 2).
 
 M2 adds `ops find`, `ops describe`, `ops call`, and `api`. Find returns a ranked
-array of operations (default limit 20). Describe returns operation metadata,
+array of concise operations (`method`, `path`, `summary`, `tags`, `keyed`,
+`file_route`; default limit 20). `--limit N` and `--all` are mutually exclusive.
+When trimmed, summary is `N of M shown; --all for everything`. Describe returns operation metadata,
 including params, body schema, keyed and file-route flags, role notes when the
 server provides them, and `truncated`. Local schema references are resolved with
 a depth cap of 8, a 600-node budget, and a 16,000-character budget; alias chains
@@ -333,3 +335,14 @@ A successful lookup refuses unknown files. A failed lookup warns `could not veri
 company X: <reason>` and permits the operation; doctor still fails its companies
 diagnostic row for lookup errors, unsupported selection or unknown files. One company lookup is cached in memory per invocation. Offline
 dry-run makes no HTTP requests and cannot verify company membership.
+
+Named `payments record` defaults an absent body `reference` to `--key`;
+`bill-payments record` defaults `check_number` instead (its pinned schema has no
+`reference`). Explicit fields in `--data`, including null, win. The header still
+carries the key, and dry-run includes the defaulted body field.
+
+Named void successes retain the server data and use `Voided <record> <number>`
+when the response includes a document number, otherwise the positional id.
+`next` contains `slowbooks <kind> show <id>` even for an empty response. Human
+output prints the same summary before the record. Invoice and bill human lists
+show `balance_due` after `total`; JSON data retains every server field.

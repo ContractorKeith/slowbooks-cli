@@ -1,1 +1,1 @@
-{"ok":true,"data":{"id":1,"status":"void"},"summary":"bills void","next":["slowbooks bills show 1"]}
+{"ok":true,"data":{"id":1,"status":"void"},"summary":"Voided bill 1","next":["slowbooks bills show 1"]}

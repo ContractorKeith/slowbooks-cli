@@ -14,7 +14,7 @@ type Row struct {
 	Name, Method, Path, Noun       string
 	Args                           []string
 	Required                       []string
-	AllocationID                   string
+	AllocationID, ReferenceField   string
 	Flags                          []Flag
 	Next, Columns                  []string
 	List, Write, Catalog, Download bool
@@ -31,8 +31,8 @@ func Reads() []Row {
 		{"vendors", "vendor_id", []string{"id", "name", "email"}},
 		{"items", "item_id", []string{"id", "name", "item_type"}},
 		{"accounts", "account_id", []string{"id", "name", "account_type"}},
-		{"invoices", "invoice_id", []string{"id", "invoice_number", "date", "status", "total"}},
-		{"bills", "bill_id", []string{"id", "bill_number", "date", "status", "total"}},
+		{"invoices", "invoice_id", []string{"id", "invoice_number", "date", "status", "total", "balance_due"}},
+		{"bills", "bill_id", []string{"id", "bill_number", "date", "status", "total", "balance_due"}},
 		{"expenses", "expense_id", []string{"id", "date", "amount"}},
 		{"payments", "payment_id", []string{"id", "date", "amount"}},
 		{"bill-payments", "bill_payment_id", []string{"id", "date", "amount"}},

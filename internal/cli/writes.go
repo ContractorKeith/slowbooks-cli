@@ -65,7 +65,12 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 			if obj, ok := value.(map[string]any); ok && obj["id"] != nil {
 				next = fmt.Sprintf("slowbooks %s show %v", kind, obj["id"])
 			}
-			return s.w.SuccessWrite(value, row.Name, []string{next})
+			summary := row.Name
+			if name == "void" {
+				summary = voidSummary(kind, args[0], value)
+				next = "slowbooks " + kind + " show " + args[0]
+			}
+			return s.w.SuccessWrite(value, summary, []string{next})
 		}
 		err = s.runCall(cmd, []string{row.Method, path}, opts)
 		if err != nil && name != "record" {
@@ -83,7 +88,7 @@ func (s *session) writeCommand(row commands.Row, name string) *cobra.Command {
 		cmd.Flags().StringVar(&values[i], flag.Name, "", "Set "+flag.Param+" (must not be blank)")
 	}
 	if name == "record" {
-		cmd.Flags().StringVar(&key, "key", "", "Stable check number or bank reference")
+		cmd.Flags().StringVar(&key, "key", "", "Stable check number or bank reference; defaults the stored payment reference")
 		cmd.Flags().StringArrayVar(&applies, "apply", nil, "Allocation ID=AMOUNT; unique IDs, positive plain decimals with at most 2 fractional digits (repeatable)")
 	}
 	if row.Name == "payments void" {
@@ -152,6 +157,12 @@ func writeData(cmd *cobra.Command, row commands.Row, values []string, data strin
 	for _, field := range row.Required {
 		if len(fields[field]) == 0 || bytes.Equal(bytes.TrimSpace(fields[field]), []byte("null")) {
 			return nil, &output.Error{Code: "usage", Message: "missing required field " + field, Hint: "supply its flag or --data field"}
+		}
+	}
+	if row.ReferenceField != "" {
+		if _, exists := fields[row.ReferenceField]; !exists {
+			key, _ := cmd.Flags().GetString("key")
+			fields[row.ReferenceField], _ = json.Marshal(key)
 		}
 	}
 	if row.AllocationID != "" {

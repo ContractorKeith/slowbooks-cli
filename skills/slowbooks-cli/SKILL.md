@@ -48,7 +48,8 @@ slowbooks reports run profit-loss --from 2026-01-01 --to 2026-12-31 --json
 Piped output or `--json` returns `{ok,data,summary,next}`. Errors return
 `{ok:false,error:{code,message,retryable,hint,detail}}`. `--jq` filters the
 whole envelope; `--quiet` emits only data. Lists default to 50 rows; use
-`--limit` or `--all`, and read the summary for trimming.
+`--limit` or `--all`, and read the summary for trimming. `ops find` defaults to
+20 concise matches with the same flags; `ops describe` gives full schemas.
 
 ## Write
 
@@ -65,7 +66,10 @@ slowbooks ops call POST /api/deposits --data "@deposit.json" --dry-run --json
 Invoice data is an object containing `lines`, not a bare array. Explicit flags
 override data fields. `--data` also accepts inline JSON or `-` for stdin.
 Payment record commands require `--key`: use a stable check number or bank
-reference, never a fresh random key. Generic keyed payment operations also
+reference, never a fresh random key. For named records, the key defaults
+`payments record` body `reference`, or `bill-payments record` body `check_number`.
+A field present in `--data` wins, including null; `--dry-run` shows the default.
+Generic keyed payment operations also
 require it. Amounts are positive plain decimals with at most two decimal places.
 
 Never automatically retry a write, even with a key. After a failure inspect the

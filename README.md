@@ -18,18 +18,27 @@ with `cmd /c "slowbooks.exe ... -o - > file"`; PowerShell's `>` re-encodes bytes
 `--data "@file"` over inline JSON, since PowerShell 5.1 changes inline quoting.
 Save JSON files as UTF-8 (a UTF-8 BOM is accepted; UTF-16 is unsupported).
 
-While this repository is private, release downloads and `go install ...@latest`
-require repository access (`go install` also needs Git credentials). Building
-from a clone you already have works now:
+Download the latest Linux x64 archive and checksums with GitHub CLI (choose
+`macos` or `windows`, and `arm64`, for other platforms), or use the browser
+[Releases](https://github.com/ContractorKeith/slowbooks-cli/releases) page:
 
 ```bash
-go build -o slowbooks ./cmd/slowbooks
+gh release download --repo ContractorKeith/slowbooks-cli --pattern '*linux-x64*' --pattern SHA256SUMS
+sha256sum --ignore-missing -c SHA256SUMS
 ```
 
-With repository access, you can also install with Go:
+On macOS use `shasum -a 256 <archive>`; on Windows use
+`Get-FileHash <archive> -Algorithm SHA256`. Compare the result with `SHA256SUMS`
+before extracting. Install with Go instead:
 
 ```bash
 go install github.com/ContractorKeith/slowbooks-cli/cmd/slowbooks@latest
+```
+
+Or build from a clone:
+
+```bash
+go build -o slowbooks ./cmd/slowbooks
 ```
 
 Create a token in SlowBooks Pro Settings → API tokens, then log in and paste
@@ -54,13 +63,17 @@ slowbooks invoices pdf 31 -o invoice-31.pdf
 ```
 
 Preview writes with `--dry-run` before sending them. Payment keys must be stable
-check numbers or bank references. Writes never auto-retry; inspect the books
+check numbers or bank references. `payments record` stores the key as `reference`
+and `bill-payments record` as `check_number` unless that field is present in
+`--data` (including an explicit null). `--dry-run` shows the resulting body.
+Writes never auto-retry; inspect the books
 and the error hint after an uncertain result.
 
 Piped output and `--json` use `{ok,data,summary,next}`; errors use
 `{ok:false,error}`. See [the envelope and exit codes](docs/json.md).
 Use `slowbooks commands --json` or `slowbooks --help --agent` for the generated command
-reference, and `slowbooks ops find deposit` for server operations beyond named commands.
+reference, and `slowbooks ops find deposit` for server operations beyond named
+commands. Find shows 20 concise matches by default; use `--limit N` or `--all`, then `ops describe` for full schemas.
 
 Install the agent skill by copying [skills/slowbooks-cli](skills/slowbooks-cli/SKILL.md) to your
 agent's skills directory (for Codex: `~/.agents/skills/slowbooks-cli/SKILL.md`). It teaches

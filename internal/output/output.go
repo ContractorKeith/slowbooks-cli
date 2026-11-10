@@ -61,6 +61,11 @@ func (w *Writer) Success(data any, summary string, next []string) error {
 	if w.Quiet || w.JSON || !w.TTY {
 		return jsonEncoder(w.Out, w.TTY).Encode(value)
 	}
+	if strings.HasPrefix(summary, "Voided ") {
+		if _, err := fmt.Fprintln(w.Out, escapeControls(summary)); err != nil {
+			return err
+		}
+	}
 	if err := w.human(data); err != nil {
 		return err
 	}
