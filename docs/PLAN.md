@@ -2,12 +2,12 @@
 
 Status: planned, no code yet (2026-11-09). Grilled 2026-11-09; scope modelled on
 basecamp-cli (agent output contract), process on mdkb. Facts from SlowBooks Pro
-v2.31.10 and Switchboard (VonHoltenCodes/SlowBooks-Pro-MCP).
+v2.31.10.
 
 ## 1. Problem and goal
 
 People and agents who keep their books in SlowBooks Pro have two ways in today: the
-browser, and Switchboard's MCP server. Neither suits a shell script, a cron job, or
+browser, and an MCP connector. Neither suits a shell script, a cron job, or
 an agent that already has a terminal. Each MCP tool schema costs context on every
 turn, and MCP can't carry a PDF or CSV. SlowBooks Pro ships no CLI.
 
@@ -43,8 +43,8 @@ Terms follow `CONTEXT.md`. Decisions that must not be reversed by accident:
    pick one per call; `slowbooks doctor` tells me what is wrong with a setup in one screen.
 10. As anyone on an older or newer server, `slowbooks` warns when the server version is
     below 2.31 or outside the versions this build was verified against, and keeps working.
-11. As a Switchboard user, I point `SLOWBOOKS_URL` and `SLOWBOOKS_TOKEN_FILE` at the
-    same server and token file Switchboard uses, and `slowbooks` works with no profile at all.
+11. As a user of another SlowBooks Pro API client, I point `SLOWBOOKS_URL` and
+    `SLOWBOOKS_TOKEN_FILE` at the same server and token file it uses, and `slowbooks` works with no profile at all.
 
 ## 3. Feature matrix
 
@@ -53,7 +53,7 @@ Terms follow `CONTEXT.md`. Decisions that must not be reversed by accident:
 | # | Feature | Decision | M | Notes |
 |---|---|---|---|---|
 | 1 | Envelope, exit-code table, `version`, TTY vs piped output | v1 | M0 | `docs/json.md` |
-| 2 | HTTP client with Switchboard's network rules | v1 | M0 | ADR 0002 |
+| 2 | HTTP client with the network rules in §5 | v1 | M0 | ADR 0002 |
 | 3 | Fake server for accept goldens; Docker e2e harness at v2.31.10 | v1 | M0 | |
 | 4 | CI: accept on Linux/macOS, unit tests on Windows, e2e on Linux, 6-target cross-build | v1 | M0 | |
 | 5 | `auth login/status/logout`, profiles, `--profile`/`--company`, env compatibility | v1 | M1 | |
@@ -69,12 +69,12 @@ Terms follow `CONTEXT.md`. Decisions that must not be reversed by accident:
 | 15 | `--help --agent`, `commands --json`, `next` hints on every named command | v1 | M6 | |
 | 16 | User skill `skills/slowbooks-cli/SKILL.md` | v1 | M6 | |
 | 17 | Release workflow on tag: 6 archives + checksums; tag notes list verified SBP versions | v1 | M6 | |
-| 19 | `scripts/smoke-live.sh` against books.kodade.com (manual) | v1 | M6 | never in CI |
+| 19 | `scripts/smoke-live.sh` against a live demo company (manual) | v1 | M6 | never in CI |
 | 20 | Named create for bills, expenses, journal, customers, vendors, items | Later | | `ops call` covers them in v1 |
 | 21 | Construction verbs (SOV, pay apps, change orders, field tickets) | Later | | for Keith's construction skills |
 | 22 | Homebrew tap formula, shell completion install docs | Later | | when the repo goes public |
-| 23 | OS keyring token storage | Drop | | token file shared with Switchboard |
-| 24 | MCP server | Drop | | Switchboard owns MCP (ADR 0002) |
+| 23 | OS keyring token storage | Drop | | token file shared with other API clients |
+| 24 | MCP server | Drop | | out of scope (ADR 0002) |
 | 25 | `--insecure` / skip TLS verify, following redirects | Drop | | network rules |
 | 26 | Automatic retry of any write | Drop | | duplicates; see §5 |
 
@@ -124,8 +124,8 @@ in the PR body.
   "acme": { "url": "...", "company": "...", "token_file": "<config>/tokens/acme.token" } } }`.
 - **Config dir**: `$SLOWBOOKS_CONFIG_DIR`, else Linux `$XDG_CONFIG_HOME/slowbooks` or
   `~/.config/slowbooks`; macOS `~/Library/Application Support/slowbooks`; Windows `%APPDATA%\slowbooks`.
-  No migration from the legacy directory; never read or move Switchboard
-  token files in `~/.config/sbp`.
+  No migration from any other client's directory; never read or move
+  another client's token files.
 - **Cache dir**: `$SLOWBOOKS_CACHE_DIR`, else the OS user cache dir + `/slowbooks`.
   Catalog at `<cache>/<profile>/openapi-<server version>.json`.
 - **Token file**: one line, `sbp_` prefix, no whitespace. Mode 0600 enforced on
@@ -133,7 +133,7 @@ in the PR body.
 - **Precedence**: flag > env > profile > default. Env: `SLOWBOOKS_URL`,
   `SLOWBOOKS_TOKEN_FILE`, `SLOWBOOKS_TIMEOUT_SECONDS` (default 120, 1–3600),
   `SLOWBOOKS_COMPANY`, `SLOWBOOKS_PROFILE`. URL + token file from env need no profile.
-- **Network rules** (= Switchboard): `https://` required unless the host is
+- **Network rules**: `https://` required unless the host is
   loopback/private/link-local; certificates always verified; redirects never
   followed; only paths under `/api/` and `/openapi.json`.
 - **Headers**: `Authorization: Bearer <token>`; `X-SlowBooks-Company` when a company
@@ -141,7 +141,7 @@ in the PR body.
 - **Keyed operations**: `POST /api/payments`, `POST /api/bill-payments`, and their
   `/{id}/discount` routes, plus any operation whose OpenAPI declares an
   `Idempotency-Key` header. A keyed write without `--key` is a usage error (ADR 0001).
-- **Role**: no route reports it. Probe like Switchboard: `GET /api/audit?limit=1`
+- **Role**: no route reports it. Probe: `GET /api/audit?limit=1`
   403 → readonly; else `GET /api/employees` 403 → accountant; else bookkeeper.
   Advisory only; recorded at login, shown by `auth status` and `doctor`.
 - **Version**: `GET /api/system` → `version`. Warn on stderr (and in `doctor`)
@@ -234,7 +234,7 @@ worktree. M0 lands alone. M3 and M4 run in parallel after M2; merge M3 first.
 - **Drift**: a unit test asserts every named command's operation exists in every
   pinned snapshot. Adding an SBP version = drop its snapshot in `testdata/`, bump
   the e2e tag, one PR.
-- **Live smoke** (manual): `scripts/smoke-live.sh` on books.kodade.com (Acme demo):
+- **Live smoke** (manual): `scripts/smoke-live.sh` on a live demo company:
   reads, then one invoice create + void.
 - Tests pin facts, not status prose.
 

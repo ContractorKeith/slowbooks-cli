@@ -172,7 +172,7 @@ func TestProfileSelectionAndExternalTokenPreservation(t *testing.T) {
 		t.Fatal(c, e)
 	}
 	s, _ := Load()
-	external := filepath.Join(t.TempDir(), "switchboard.token")
+	external := filepath.Join(t.TempDir(), "external.token")
 	if e = os.WriteFile(external, []byte("sbp_external"), 0600); e != nil {
 		t.Fatal(e)
 	}

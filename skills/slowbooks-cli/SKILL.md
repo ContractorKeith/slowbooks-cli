@@ -1,6 +1,6 @@
 ---
 name: slowbooks-cli
-description: Use the slowbooks CLI to read and update SlowBooks Pro from a shell, inspect server operations, run reports, or download invoices and exports. Use when the user wants bookkeeping through the CLI rather than the Switchboard MCP connector.
+description: Use the slowbooks CLI to read and update SlowBooks Pro from a shell, inspect server operations, run reports, or download invoices and exports. Use when the user wants bookkeeping through the CLI rather than an MCP connector.
 ---
 
 # SlowBooks Pro from a shell

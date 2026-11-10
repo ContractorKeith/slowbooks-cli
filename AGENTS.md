@@ -28,10 +28,10 @@ test -z "$(gofmt -l .)" && go vet ./... && staticcheck ./...
 ## Conventions & Gotchas
 - Only `internal/client` makes HTTP requests; only `internal/output` writes stdout/stderr and picks exit codes.
 - Named commands are rows in `internal/commands` and use the same call path as `ops call`.
-- Never import, vendor or copy SlowBooks Pro or Switchboard code; HTTP only.
+- Never import, vendor or copy SlowBooks Pro code; HTTP only.
 - Payment writes require `--key`; writes never auto-retry.
-- Env vars keep Switchboard's names (`SLOWBOOKS_URL`, `SLOWBOOKS_TOKEN_FILE`, `SLOWBOOKS_TIMEOUT_SECONDS`).
-- Tests isolate `SLOWBOOKS_CONFIG_DIR`, `SLOWBOOKS_CACHE_DIR` and `HOME`. Never touch the legacy Switchboard token directory `~/.config/sbp`.
+- Env vars are the names other SlowBooks Pro API clients use (`SLOWBOOKS_URL`, `SLOWBOOKS_TOKEN_FILE`, `SLOWBOOKS_TIMEOUT_SECONDS`).
+- Tests isolate `SLOWBOOKS_CONFIG_DIR`, `SLOWBOOKS_CACHE_DIR` and `HOME`. Never touch a real token file.
 - Pure Go, `CGO_ENABLED=0`. Tests pin facts, not status prose.
 - One milestone = one issue = one branch = one draft PR = one T3 thread in its own worktree.
 - Commits: `<type>: <description>`, author @ContractorKeith only.
@@ -40,6 +40,6 @@ test -z "$(gofmt -l .)" && go vet ./... && staticcheck ./...
 GitHub issues (label `milestone`) are the truth. Basecamp `github` board card `slowbooks-cli`, one step per milestone. A tag means "verified against these SlowBooks Pro versions"; no other release process.
 
 ## Out of Scope
-- An MCP server (Switchboard owns MCP), OS keyring, `--insecure`, following redirects, auto-retrying writes.
+- An MCP server (ADR 0002), OS keyring, `--insecure`, following redirects, auto-retrying writes.
 - Changes to the SlowBooks Pro product repo.
 - Construction verbs until after v1.
